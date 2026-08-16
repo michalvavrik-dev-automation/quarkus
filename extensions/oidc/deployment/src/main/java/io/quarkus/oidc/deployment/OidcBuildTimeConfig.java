@@ -1,6 +1,9 @@
 package io.quarkus.oidc.deployment;
 
+import java.util.Set;
+
 import io.quarkus.oidc.runtime.OidcConfig;
+import io.quarkus.oidc.runtime.OidcRoute;
 import io.quarkus.runtime.annotations.ConfigDocSection;
 import io.quarkus.runtime.annotations.ConfigRoot;
 import io.smallrye.config.ConfigMapping;
@@ -40,4 +43,11 @@ public interface OidcBuildTimeConfig {
     @WithName("health.enabled")
     @WithDefault("false")
     boolean healthEnabled();
+
+    /**
+     * OIDC routes that tenants can use. Each route requires a dedicated HTTP handler;
+     * remove routes no tenant needs to avoid unnecessary overhead.
+     */
+    @WithDefault("backchannel-logout,resource-metadata")
+    Set<OidcRoute> allowedRoutes();
 }
