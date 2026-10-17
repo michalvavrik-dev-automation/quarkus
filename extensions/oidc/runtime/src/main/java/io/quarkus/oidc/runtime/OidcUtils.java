@@ -186,18 +186,15 @@ public final class OidcUtils {
             return null;
         }
 
-        // Names of the found session cookies, including the empty ones which must be removed
-        List<String> cookieNames = new ArrayList<>();
-
         Cookie sessionCookie = cookies.get(sessionCookieName);
         if (sessionCookie != null) {
-            cookieNames.add(sessionCookieName);
             if (!sessionCookie.getValue().isEmpty()) {
-                context.put(defaultSessionCookieName, cookieNames);
+                context.put(defaultSessionCookieName, List.of(sessionCookieName));
                 return sessionCookie.getValue();
             }
-            // An empty session cookie is a removed cookie which the user agent has not dropped yet,
-            // it is treated as an absent cookie
+            // An empty session cookie is a removed cookie which the user agent has not dropped yet.
+            // It is treated as an absent cookie and it is not removed again: removing it again would only
+            // extend its life in the user agents which keep removed cookies until their expiry time has passed.
             LOG.debugf("%s cookie is empty, treating it as absent", sessionCookieName);
         }
 
@@ -222,21 +219,16 @@ public final class OidcUtils {
             }
         }
         if (!sessionCookies.isEmpty()) {
-            cookieNames.addAll(sessionCookies.keySet());
-
             StringBuilder sessionCookieValue = new StringBuilder();
             for (String value : sessionCookies.values()) {
                 sessionCookieValue.append(value);
             }
             if (!sessionCookieValue.isEmpty()) {
-                context.put(defaultSessionCookieName, cookieNames);
+                context.put(defaultSessionCookieName, new ArrayList<String>(sessionCookies.keySet()));
                 return sessionCookieValue.toString();
             }
+            // Same as above, empty chunks are treated as absent and are not removed again
             LOG.debugf("%s cookie chunks are empty, treating them as absent", sessionCookieName);
-        }
-        if (!cookieNames.isEmpty()) {
-            // Only empty session cookies are available, register them so that they can be removed
-            context.put(defaultSessionCookieName, cookieNames);
         }
         return null;
     }

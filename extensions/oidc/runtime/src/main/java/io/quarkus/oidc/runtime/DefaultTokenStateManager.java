@@ -145,8 +145,7 @@ public class DefaultTokenStateManager implements TokenStateManager {
                 if (atCookieValue != null) {
                     // Decrypt access token from the q_session_at cookie
                     String accessTokenState = OidcUtils.decryptToken(atCookieValue, routingContext, oidcConfig);
-                    // Keep the trailing empty strings, the access token expiry and scope can both be empty
-                    String[] accessTokenData = CodeAuthenticationMechanism.COOKIE_PATTERN.split(accessTokenState, -1);
+                    String[] accessTokenData = CodeAuthenticationMechanism.COOKIE_PATTERN.split(accessTokenState);
                     accessToken = accessTokenData[0];
                     try {
                         accessTokenExpiresIn = accessTokenData[1].isEmpty() ? null

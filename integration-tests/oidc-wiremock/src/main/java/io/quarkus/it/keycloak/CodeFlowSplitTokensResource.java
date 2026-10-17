@@ -18,16 +18,6 @@ public class CodeFlowSplitTokensResource {
 
     @GET
     public String access() {
-        return tokens();
-    }
-
-    @GET
-    @Path("/minimal-token-response")
-    public String accessWithMinimalTokenResponse() {
-        return tokens();
-    }
-
-    private String tokens() {
         AccessTokenCredential accessToken = identity.getCredential(AccessTokenCredential.class);
         RefreshToken refreshToken = identity.getCredential(RefreshToken.class);
         return identity.getPrincipal().getName()

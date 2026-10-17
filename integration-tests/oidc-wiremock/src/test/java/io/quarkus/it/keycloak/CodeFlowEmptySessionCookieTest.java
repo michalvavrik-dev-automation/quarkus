@@ -39,6 +39,9 @@ import io.restassured.response.Response;
  * the removal yet, for example Linux WebKit which keeps the removed cookie until the 'Expires' second
  * has passed, keeps sending the cookie with an empty value for a short time, including with the
  * redirect back from the OIDC provider which completes the next login.
+ * <p>
+ * Such a cookie is not removed again: the user agent drops it once it has expired, while removing it again
+ * would only refresh its expiry time.
  */
 @QuarkusTest
 @QuarkusTestResource(CustomOidcWiremockTestResource.class)
@@ -70,8 +73,8 @@ public class CodeFlowEmptySessionCookieTest {
                 .header("Cookie", SESSION_COOKIE + "=")
                 .get(APP_URL + "/code-flow");
         String authorizationUri = assertChallenge(challenge);
-        // the empty session cookie is removed again
-        assertCookieRemoved(challenge, SESSION_COOKIE);
+        // the empty session cookie is not removed again
+        assertCookieNotTouched(challenge, SESSION_COOKIE);
         Cookie stateCookie = getStateCookie(challenge);
 
         // 2. The user authenticates at the OIDC provider which redirects back with the authorization code
@@ -111,9 +114,9 @@ public class CodeFlowEmptySessionCookieTest {
                 .get(APP_URL + "/code-flow");
         assertChallenge(challenge);
         assertNotNull(getStateCookie(challenge));
-        // the empty session cookie chunks are removed again
-        assertCookieRemoved(challenge, SESSION_COOKIE + "_chunk_1");
-        assertCookieRemoved(challenge, SESSION_COOKIE + "_chunk_2");
+        // the empty session cookie chunks are not removed again
+        assertCookieNotTouched(challenge, SESSION_COOKIE + "_chunk_1");
+        assertCookieNotTouched(challenge, SESSION_COOKIE + "_chunk_2");
     }
 
     @Test
@@ -178,15 +181,15 @@ public class CodeFlowEmptySessionCookieTest {
                     sessionCookie + "; " + accessTokenCookie + "; " + SPLIT_TOKENS_REFRESH_TOKEN_COOKIE + "=",
                     "alice:true:false");
 
-            // An empty session cookie means no session even if the token cookies are valid,
-            // and all the session cookies are removed
+            // An empty session cookie means no session even if the token cookies are valid;
+            // nothing is removed again, the next login replaces the token cookies
             Response challenge = RestAssured.given().redirects().follow(false)
                     .header("Cookie", SPLIT_TOKENS_SESSION_COOKIE + "=; " + accessTokenCookie + "; " + refreshTokenCookie)
                     .get(APP_URL + "/code-flow-split-tokens");
             assertChallenge(challenge);
-            assertCookieRemoved(challenge, SPLIT_TOKENS_SESSION_COOKIE);
-            assertCookieRemoved(challenge, SPLIT_TOKENS_ACCESS_TOKEN_COOKIE);
-            assertCookieRemoved(challenge, SPLIT_TOKENS_REFRESH_TOKEN_COOKIE);
+            assertCookieNotTouched(challenge, SPLIT_TOKENS_SESSION_COOKIE);
+            assertCookieNotTouched(challenge, SPLIT_TOKENS_ACCESS_TOKEN_COOKIE);
+            assertCookieNotTouched(challenge, SPLIT_TOKENS_REFRESH_TOKEN_COOKIE);
 
             webClient.getCookieManager().clearCookies();
         }
@@ -233,6 +236,10 @@ public class CodeFlowEmptySessionCookieTest {
         assertTrue(authorizationUri.startsWith(wireMockServer.baseUrl() + "/auth/realms/quarkus"), authorizationUri);
         assertTrue(authorizationUri.contains("response_type=code"), authorizationUri);
         return authorizationUri;
+    }
+
+    private static void assertCookieNotTouched(Response response, String cookieName) {
+        assertNull(response.getDetailedCookie(cookieName), cookieName + " cookie must not be removed again");
     }
 
     private static void assertCookieRemoved(Response response, String cookieName) {

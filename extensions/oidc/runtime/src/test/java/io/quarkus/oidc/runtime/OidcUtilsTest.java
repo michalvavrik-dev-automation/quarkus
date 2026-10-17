@@ -111,10 +111,8 @@ public class OidcUtilsTest {
         String sessionCookieValue = OidcUtils.getSessionCookie(context,
                 Map.of("q_session_test", new CookieImpl("q_session_test", "")), oidcConfig);
         assertNull(sessionCookieValue);
-        // but its name is still registered so that it can be removed again
-        @SuppressWarnings({ "rawtypes", "unchecked" })
-        List<String> names = (List) context.get(OidcUtils.SESSION_COOKIE_NAME);
-        assertEquals(List.of("q_session_test"), names);
+        // and it is not registered for the removal, the user agent drops it once it has expired
+        assertNull(context.get(OidcUtils.SESSION_COOKIE_NAME));
     }
 
     @Test
@@ -128,9 +126,7 @@ public class OidcUtilsTest {
                         "q_session_test_chunk_2", new CookieImpl("q_session_test_chunk_2", "")),
                 oidcConfig);
         assertNull(sessionCookieValue);
-        @SuppressWarnings({ "rawtypes", "unchecked" })
-        List<String> names = (List) context.get(OidcUtils.SESSION_COOKIE_NAME);
-        assertEquals(List.of("q_session_test_chunk_1", "q_session_test_chunk_2"), names);
+        assertNull(context.get(OidcUtils.SESSION_COOKIE_NAME));
     }
 
     @Test
@@ -148,7 +144,8 @@ public class OidcUtilsTest {
         assertEquals("tokens", sessionCookieValue);
         @SuppressWarnings({ "rawtypes", "unchecked" })
         List<String> names = (List) context.get(OidcUtils.SESSION_COOKIE_NAME);
-        assertEquals(List.of("q_session_test", "q_session_test_chunk_1", "q_session_test_chunk_2"), names);
+        // only the chunks are registered for the removal
+        assertEquals(List.of("q_session_test_chunk_1", "q_session_test_chunk_2"), names);
     }
 
     @Test
