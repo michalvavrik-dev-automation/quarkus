@@ -102,6 +102,73 @@ public class OidcUtilsTest {
     }
 
     @Test
+    public void testGetEmptySessionCookie() throws Exception {
+
+        OidcTenantConfig oidcConfig = new OidcTenantConfig();
+        oidcConfig.setTenantId("test");
+        Map<String, Object> context = new HashMap<>();
+        // An empty session cookie is a removed cookie which the user agent has not dropped yet
+        String sessionCookieValue = OidcUtils.getSessionCookie(context,
+                Map.of("q_session_test", new CookieImpl("q_session_test", "")), oidcConfig);
+        assertNull(sessionCookieValue);
+        // but its name is still registered so that it can be removed again
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        List<String> names = (List) context.get(OidcUtils.SESSION_COOKIE_NAME);
+        assertEquals(List.of("q_session_test"), names);
+    }
+
+    @Test
+    public void testGetEmptySessionCookieChunks() throws Exception {
+
+        OidcTenantConfig oidcConfig = new OidcTenantConfig();
+        oidcConfig.setTenantId("test");
+        Map<String, Object> context = new HashMap<>();
+        String sessionCookieValue = OidcUtils.getSessionCookie(context,
+                Map.of("q_session_test_chunk_1", new CookieImpl("q_session_test_chunk_1", ""),
+                        "q_session_test_chunk_2", new CookieImpl("q_session_test_chunk_2", "")),
+                oidcConfig);
+        assertNull(sessionCookieValue);
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        List<String> names = (List) context.get(OidcUtils.SESSION_COOKIE_NAME);
+        assertEquals(List.of("q_session_test_chunk_1", "q_session_test_chunk_2"), names);
+    }
+
+    @Test
+    public void testGetEmptySessionCookieWithSessionCookieChunks() throws Exception {
+
+        OidcTenantConfig oidcConfig = new OidcTenantConfig();
+        oidcConfig.setTenantId("test");
+        Map<String, Object> context = new HashMap<>();
+        // An empty session cookie must not hide the session cookie chunks
+        String sessionCookieValue = OidcUtils.getSessionCookie(context,
+                Map.of("q_session_test", new CookieImpl("q_session_test", ""),
+                        "q_session_test_chunk_1", new CookieImpl("q_session_test_chunk_1", "tok"),
+                        "q_session_test_chunk_2", new CookieImpl("q_session_test_chunk_2", "ens")),
+                oidcConfig);
+        assertEquals("tokens", sessionCookieValue);
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        List<String> names = (List) context.get(OidcUtils.SESSION_COOKIE_NAME);
+        assertEquals(List.of("q_session_test", "q_session_test_chunk_1", "q_session_test_chunk_2"), names);
+    }
+
+    @Test
+    public void testGetSessionCookieWithEmptySessionCookieChunk() throws Exception {
+
+        OidcTenantConfig oidcConfig = new OidcTenantConfig();
+        oidcConfig.setTenantId("test");
+        Map<String, Object> context = new HashMap<>();
+        // The session cookie wins over the chunks
+        String sessionCookieValue = OidcUtils.getSessionCookie(context,
+                Map.of("q_session_test", new CookieImpl("q_session_test", "tokens"),
+                        "q_session_test_chunk_1", new CookieImpl("q_session_test_chunk_1", "")),
+                oidcConfig);
+        assertEquals("tokens", sessionCookieValue);
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        List<String> names = (List) context.get(OidcUtils.SESSION_COOKIE_NAME);
+        assertEquals(List.of("q_session_test"), names);
+    }
+
+    @Test
     public void testCorrectTokenType() throws Exception {
         OidcTenantConfig.Token tokenClaims = new OidcTenantConfig.Token();
         tokenClaims.setTokenType("access_token");

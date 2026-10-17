@@ -145,7 +145,8 @@ public class DefaultTokenStateManager implements TokenStateManager {
                 if (atCookieValue != null) {
                     // Decrypt access token from the q_session_at cookie
                     String accessTokenState = OidcUtils.decryptToken(atCookieValue, routingContext, oidcConfig);
-                    String[] accessTokenData = CodeAuthenticationMechanism.COOKIE_PATTERN.split(accessTokenState);
+                    // Keep the trailing empty strings, the access token expiry and scope can both be empty
+                    String[] accessTokenData = CodeAuthenticationMechanism.COOKIE_PATTERN.split(accessTokenState, -1);
                     accessToken = accessTokenData[0];
                     try {
                         accessTokenExpiresIn = accessTokenData[1].isEmpty() ? null
@@ -164,13 +165,15 @@ public class DefaultTokenStateManager implements TokenStateManager {
                     }
                 }
                 Cookie rtCookie = getRefreshTokenCookie(routingContext, oidcConfig);
-                if (rtCookie != null) {
+                // An empty cookie is a removed cookie which the user agent has not dropped yet
+                if (rtCookie != null && !rtCookie.getValue().isEmpty()) {
                     // Decrypt refresh token from the q_session_rt cookie
                     refreshToken = OidcUtils.decryptToken(rtCookie.getValue(), routingContext, oidcConfig);
                 }
             } else if (oidcConfig.tokenStateManager().strategy() == Strategy.ID_REFRESH_TOKENS) {
                 Cookie rtCookie = getRefreshTokenCookie(routingContext, oidcConfig);
-                if (rtCookie != null) {
+                // An empty cookie is a removed cookie which the user agent has not dropped yet
+                if (rtCookie != null && !rtCookie.getValue().isEmpty()) {
                     refreshToken = OidcUtils.decryptToken(rtCookie.getValue(), routingContext, oidcConfig);
                 }
             }

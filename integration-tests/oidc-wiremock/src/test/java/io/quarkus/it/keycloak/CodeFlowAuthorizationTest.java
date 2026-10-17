@@ -658,6 +658,31 @@ public class CodeFlowAuthorizationTest {
     }
 
     @Test
+    public void testCodeFlowSplitTokensMinimalTokenResponse() throws IOException {
+        // The token endpoint returns neither 'expires_in' nor 'scope',
+        // the access token cookie must still be restored
+        try (final WebClient webClient = createWebClient()) {
+            webClient.getOptions().setRedirectEnabled(true);
+            HtmlPage page = webClient.getPage("http://localhost:8081/code-flow-split-tokens/minimal-token-response");
+
+            HtmlForm form = page.getFormByName("form");
+            form.getInputByName("username").type("alice");
+            form.getInputByName("password").type("alice");
+
+            // The page type depends on the outcome, compare the content
+            String content = form.getInputByValue("login").click().getWebResponse().getContentAsString();
+            assertEquals("alice:true:true", content);
+            assertNotNull(webClient.getCookieManager().getCookie("q_session_at_code-flow-split-tokens-minimal"));
+
+            TextPage textPage = webClient.getPage("http://localhost:8081/code-flow-split-tokens/minimal-token-response");
+            assertEquals("alice:true:true", textPage.getContent());
+
+            webClient.getCookieManager().clearCookies();
+        }
+        clearCache();
+    }
+
+    @Test
     public void testCodeFlowTokenIntrospectionExpiresInRefresh() throws Exception {
         // This stub does return an access token expires_in property
         defineCodeFlowTokenIntrospectionExpiresInStub();
