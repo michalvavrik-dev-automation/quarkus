@@ -69,9 +69,10 @@ final class TenantContextFactory {
     TenantConfigContext createDefaultTenantConfig(Map<String, OidcTenantConfig> staticTenants, OidcTenantConfig defaultTenant) {
         String defaultTenantId = defaultTenant.tenantId().get();
         boolean foundNamedStaticTenants = !staticTenants.isEmpty();
-        var defaultTenantInitializer = createStaticTenantContextCreator(defaultTenant, foundNamedStaticTenants,
+        var oidcConfig = OidcUtils.resolveProviderConfig(defaultTenant);
+        var defaultTenantInitializer = createStaticTenantContextCreator(oidcConfig, foundNamedStaticTenants,
                 defaultTenantId);
-        return createStaticTenantContext(defaultTenant, foundNamedStaticTenants, defaultTenantId, defaultTenantInitializer);
+        return createStaticTenantContext(oidcConfig, foundNamedStaticTenants, defaultTenantId, defaultTenantInitializer);
     }
 
     Map<String, TenantConfigContext> createStaticTenantConfigs(Map<String, OidcTenantConfig> staticTenants,
@@ -101,9 +102,10 @@ final class TenantContextFactory {
     private void createStaticTenantConfig(String defaultTenantId, String tenantKey, OidcTenantConfig namedTenantConfig,
             Map<String, TenantConfigContext> staticTenantsConfig) {
         OidcCommonUtils.verifyConfigurationId(defaultTenantId, tenantKey, namedTenantConfig.tenantId());
-        var staticTenantInitializer = createStaticTenantContextCreator(namedTenantConfig, false, tenantKey);
+        var oidcConfig = OidcUtils.resolveProviderConfig(namedTenantConfig);
+        var staticTenantInitializer = createStaticTenantContextCreator(oidcConfig, false, tenantKey);
         staticTenantsConfig.put(tenantKey,
-                createStaticTenantContext(namedTenantConfig, false, tenantKey, staticTenantInitializer));
+                createStaticTenantContext(oidcConfig, false, tenantKey, staticTenantInitializer));
     }
 
     private TenantConfigContext createStaticTenantContext(

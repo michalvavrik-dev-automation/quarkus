@@ -2,6 +2,8 @@ package io.quarkus.oidc.runtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -560,5 +562,23 @@ public class KnownOidcProvidersTest {
         assertEquals("I you my own principal", config.token().principalClaim().get());
         assertFalse(config.authentication().forceRedirectHttpsScheme().orElse(false));
         assertEquals(List.of("profile"), config.authentication().scopes().get());
+    }
+
+    @Test
+    public void testResolveProviderConfigDoesNotModifyTenantConfig() {
+        OidcTenantConfig tenant = OidcTenantConfig.builder().provider(Provider.GITHUB).build();
+        OidcTenantConfig config = OidcUtils.resolveProviderConfig(tenant);
+
+        assertNotSame(tenant, config);
+        assertEquals(Provider.GITHUB, config.provider().get());
+        assertEquals("https://github.com/login/oauth", config.authServerUrl().get());
+        assertEquals(ApplicationType.WEB_APP, config.applicationType().get());
+
+        assertEquals(Provider.GITHUB, tenant.provider().get());
+        assertTrue(tenant.authServerUrl().isEmpty());
+        assertTrue(tenant.applicationType().isEmpty());
+
+        OidcTenantConfig tenantWithoutProvider = OidcTenantConfig.builder().build();
+        assertSame(tenantWithoutProvider, OidcUtils.resolveProviderConfig(tenantWithoutProvider));
     }
 }

@@ -14,7 +14,6 @@ import io.quarkus.oidc.common.runtime.OidcClientCommonConfig;
 import io.quarkus.oidc.common.runtime.OidcConstants;
 import io.quarkus.oidc.common.runtime.config.OidcCommonConfig;
 import io.quarkus.oidc.runtime.OidcConfig;
-import io.quarkus.oidc.runtime.OidcUtils;
 import io.quarkus.oidc.runtime.builders.AuthenticationConfigBuilder;
 import io.quarkus.oidc.runtime.builders.LogoutConfigBuilder;
 import io.quarkus.oidc.runtime.builders.TokenConfigBuilder;
@@ -2223,7 +2222,7 @@ public class OidcTenantConfig extends OidcClientCommonConfig implements io.quark
      * @return OidcTenantConfig
      */
     public static OidcTenantConfig of(io.quarkus.oidc.runtime.OidcTenantConfig mapping) {
-        return new OidcTenantConfig(OidcUtils.resolveProviderConfig(mapping));
+        return new OidcTenantConfig(mapping);
     }
 
     /**
