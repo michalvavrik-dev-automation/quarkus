@@ -3,6 +3,7 @@ package io.quarkus.oidc.runtime;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -12,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,6 +29,8 @@ import org.junit.jupiter.api.Test;
 import io.quarkus.oidc.OIDCException;
 import io.quarkus.oidc.OidcTenantConfig;
 import io.quarkus.oidc.common.runtime.OidcCommonUtils;
+import io.quarkus.oidc.runtime.OidcTenantConfig.ApplicationType;
+import io.quarkus.oidc.runtime.OidcTenantConfig.Roles.Source;
 import io.smallrye.jwt.algorithm.SignatureAlgorithm;
 import io.smallrye.jwt.build.Jwt;
 import io.vertx.core.http.Cookie;
@@ -463,5 +467,44 @@ public class OidcUtilsTest {
         assertEquals("secp256r1", OidcUtils.resolveAttestationEcCurve(SignatureAlgorithm.ES256));
         assertEquals("secp384r1", OidcUtils.resolveAttestationEcCurve(SignatureAlgorithm.ES384));
         assertEquals("secp521r1", OidcUtils.resolveAttestationEcCurve(SignatureAlgorithm.ES512));
+    }
+
+    @Test
+    public void testResolveRefreshExpired() {
+        OidcTenantConfig webApp = OidcTenantConfig.authServerUrl("https://server").applicationType(ApplicationType.WEB_APP)
+                .token().refreshTokenTimeSkew(Duration.ofSeconds(5)).end().build();
+        OidcTenantConfig resolved = OidcUtils.resolveTenantConfig(webApp);
+        assertTrue(resolved.token().refreshExpired());
+        assertFalse(webApp.token().refreshExpired());
+        assertSame(resolved, OidcUtils.resolveTenantConfig(resolved));
+
+        OidcTenantConfig service = OidcTenantConfig.authServerUrl("https://server")
+                .token().refreshTokenTimeSkew(Duration.ofSeconds(5)).end().build();
+        assertSame(service, OidcUtils.resolveTenantConfig(service));
+    }
+
+    @Test
+    public void testResolveUserInfoRequired() {
+        OidcTenantConfig rolesSource = OidcTenantConfig.authServerUrl("https://server").roles().source(Source.userinfo).end()
+                .build();
+        OidcTenantConfig resolved = OidcUtils.resolveTenantConfig(rolesSource);
+        assertTrue(resolved.authentication().userInfoRequired().orElseThrow());
+        assertTrue(rolesSource.authentication().userInfoRequired().isEmpty());
+        assertSame(resolved, OidcUtils.resolveTenantConfig(resolved));
+
+        OidcTenantConfig serviceVerification = OidcTenantConfig.authServerUrl("https://server")
+                .token().verifyAccessTokenWithUserInfo().end().build();
+        assertTrue(OidcUtils.resolveTenantConfig(serviceVerification).authentication().userInfoRequired().orElseThrow());
+
+        OidcTenantConfig idTokenNotRequired = OidcTenantConfig.authServerUrl("https://server")
+                .authentication().idTokenRequired(false).end().build();
+        assertTrue(OidcUtils.resolveTenantConfig(idTokenNotRequired).authentication().userInfoRequired().orElseThrow());
+
+        OidcTenantConfig userInfoDisabled = OidcTenantConfig.authServerUrl("https://server").roles().source(Source.userinfo)
+                .end().authentication().userInfoRequired(false).end().build();
+        assertSame(userInfoDisabled, OidcUtils.resolveTenantConfig(userInfoDisabled));
+
+        OidcTenantConfig withoutAuthServer = OidcTenantConfig.builder().roles().source(Source.userinfo).end().build();
+        assertSame(withoutAuthServer, OidcUtils.resolveTenantConfig(withoutAuthServer));
     }
 }

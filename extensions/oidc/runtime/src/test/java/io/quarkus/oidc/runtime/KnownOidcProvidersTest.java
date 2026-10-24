@@ -578,6 +578,9 @@ public class KnownOidcProvidersTest {
         assertTrue(tenant.authServerUrl().isEmpty());
         assertTrue(tenant.applicationType().isEmpty());
 
+        // nothing is left to merge
+        assertSame(config, OidcUtils.resolveProviderConfig(config));
+
         OidcTenantConfig tenantWithoutProvider = OidcTenantConfig.builder().build();
         assertSame(tenantWithoutProvider, OidcUtils.resolveProviderConfig(tenantWithoutProvider));
     }

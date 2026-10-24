@@ -39,21 +39,21 @@ class TenantConfigResolverWellKnownProviderTest {
                     """);
 
     @Test
-    void testTenantContextUpdatedOnlyForNewTenantConfig() {
+    void testTenantContextUpdatedOnlyForDifferentTenantConfig() {
         String tenantContext = getTenantContext(false);
         // the same tenant config instance returned by the TenantConfigResolver must not update the tenant context
         given().auth().oauth2("opaque-token").get("/protected").then().statusCode(200).body(is(tenantContext));
 
-        // a new tenant config instance returned by the TenantConfigResolver must update the tenant context
+        // a different tenant config returned by the TenantConfigResolver must update the tenant context
         String updatedTenantContext = getTenantContext(true);
         given().auth().oauth2("opaque-token").get("/protected").then().statusCode(200)
                 .body(not(tenantContext))
                 .body(is(updatedTenantContext));
     }
 
-    private static String getTenantContext(boolean createNewTenantConfig) {
+    private static String getTenantContext(boolean updateTenantConfig) {
         return given().auth().oauth2("opaque-token")
-                .queryParam("new-tenant-config", createNewTenantConfig)
+                .queryParam("update-tenant-config", updateTenantConfig)
                 .get("/protected").then().statusCode(200).extract().asString();
     }
 
@@ -105,8 +105,8 @@ class TenantConfigResolverWellKnownProviderTest {
             if (!routingContext.normalizedPath().startsWith("/protected")) {
                 return Uni.createFrom().nullItem();
             }
-            if (Boolean.parseBoolean(routingContext.request().getParam("new-tenant-config"))) {
-                tenantConfig = OidcTenantConfig.builder(tenantConfig).build();
+            if (Boolean.parseBoolean(routingContext.request().getParam("update-tenant-config"))) {
+                tenantConfig = OidcTenantConfig.builder(tenantConfig).clientName("updated-client-name").build();
             }
             return Uni.createFrom().item(tenantConfig);
         }

@@ -1,6 +1,7 @@
 package io.quarkus.oidc.common.runtime.config;
 
 import java.time.Duration;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -103,6 +104,33 @@ public abstract class OidcCommonConfigBuilder<T> {
         @Override
         public Tls tls() {
             return tls;
+        }
+
+        /**
+         * Compares properties declared by this class. It is not an {@link Object#equals(Object)} implementation,
+         * because subclasses would compare only these properties unless they override it.
+         */
+        protected final boolean commonConfigEquals(OidcCommonConfigImpl that) {
+            return connectionRetryCount == that.connectionRetryCount
+                    && useBlockingDnsLookup == that.useBlockingDnsLookup
+                    && followRedirects == that.followRedirects
+                    && Objects.equals(authServerUrl, that.authServerUrl)
+                    && Objects.equals(discoveryPath, that.discoveryPath)
+                    && Objects.equals(discoveryEnabled, that.discoveryEnabled)
+                    && Objects.equals(registrationPath, that.registrationPath)
+                    && Objects.equals(connectionDelay, that.connectionDelay)
+                    && Objects.equals(connectionTimeout, that.connectionTimeout)
+                    && Objects.equals(maxPoolSize, that.maxPoolSize)
+                    && Objects.equals(proxy, that.proxy)
+                    && Objects.equals(tls, that.tls);
+        }
+
+        /**
+         * @return hash code of properties declared by this class, see {@link #commonConfigEquals(OidcCommonConfigImpl)}
+         */
+        protected final int commonConfigHashCode() {
+            return Objects.hash(authServerUrl, discoveryPath, discoveryEnabled, registrationPath, connectionDelay,
+                    connectionRetryCount, connectionTimeout, useBlockingDnsLookup, maxPoolSize, followRedirects, proxy, tls);
         }
     }
 

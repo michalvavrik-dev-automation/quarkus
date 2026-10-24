@@ -237,6 +237,50 @@ public final class OidcTenantConfigBuilder extends OidcClientCommonConfigBuilder
         public Optional<Provider> provider() {
             return provider;
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            return o instanceof OidcTenantConfigImpl that
+                    && clientCommonConfigEquals(that)
+                    && tenantEnabled == that.tenantEnabled
+                    && allowTokenIntrospectionCache == that.allowTokenIntrospectionCache
+                    && allowUserInfoCache == that.allowUserInfoCache
+                    && Objects.equals(tenantId, that.tenantId)
+                    && Objects.equals(applicationType, that.applicationType)
+                    && Objects.equals(authorizationPath, that.authorizationPath)
+                    && Objects.equals(userInfoPath, that.userInfoPath)
+                    && Objects.equals(introspectionPath, that.introspectionPath)
+                    && Objects.equals(jwksPath, that.jwksPath)
+                    && Objects.equals(endSessionPath, that.endSessionPath)
+                    && Objects.equals(tenantPaths, that.tenantPaths)
+                    && Objects.equals(publicKey, that.publicKey)
+                    && Objects.equals(introspectionCredentials, that.introspectionCredentials)
+                    && Objects.equals(roles, that.roles)
+                    && Objects.equals(token, that.token)
+                    && Objects.equals(dpop, that.dpop)
+                    && Objects.equals(logout, that.logout)
+                    && Objects.equals(resourceMetadata, that.resourceMetadata)
+                    && Objects.equals(clientIdMetadata, that.clientIdMetadata)
+                    && Objects.equals(certificateChain, that.certificateChain)
+                    && Objects.equals(authentication, that.authentication)
+                    && Objects.equals(codeGrant, that.codeGrant)
+                    && Objects.equals(tokenStateManager, that.tokenStateManager)
+                    && Objects.equals(cacheUserInfoInIdtoken, that.cacheUserInfoInIdtoken)
+                    && Objects.equals(jwks, that.jwks)
+                    && Objects.equals(provider, that.provider);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(clientCommonConfigHashCode(), tenantId, tenantEnabled, applicationType, authorizationPath,
+                    userInfoPath, introspectionPath, jwksPath, endSessionPath, tenantPaths, publicKey, introspectionCredentials,
+                    roles, token, dpop, logout, resourceMetadata, clientIdMetadata, certificateChain, authentication, codeGrant,
+                    tokenStateManager, allowTokenIntrospectionCache, allowUserInfoCache, cacheUserInfoInIdtoken, jwks,
+                    provider);
+        }
     }
 
     private Optional<String> tenantId;

@@ -584,7 +584,8 @@ public final class OidcUtils {
      * over the same initialized properties in the well-known OpenId Connect provider configuration.
      *
      * Tenant id property of the current tenant must be set before the merge operation.
-     * The current tenant configuration is not modified, a new merged configuration is returned instead.
+     * The current tenant configuration is not modified. It is returned when no property needs to be merged,
+     * otherwise a new merged configuration is returned.
      *
      * @param tenant current tenant configuration
      * @param provider well-known OpenId Connect provider configuration
@@ -596,58 +597,75 @@ public final class OidcUtils {
             throw new IllegalStateException();
         }
         var builder = OidcTenantConfig.builder(tenant);
+        boolean changed = false;
         // root properties
         if (tenant.authServerUrl().isEmpty() && provider.authServerUrl().isPresent()) {
             builder.authServerUrl(provider.authServerUrl().get());
+            changed = true;
         }
         if (tenant.applicationType().isEmpty() && provider.applicationType().isPresent()) {
             builder.applicationType(provider.applicationType().get());
+            changed = true;
         }
         if (tenant.discoveryEnabled().isEmpty() && provider.discoveryEnabled().isPresent()) {
             builder.discoveryEnabled(provider.discoveryEnabled().get());
+            changed = true;
         }
         if (tenant.authorizationPath().isEmpty() && provider.authorizationPath().isPresent()) {
             builder.authorizationPath(provider.authorizationPath().get());
+            changed = true;
         }
         if (tenant.jwksPath().isEmpty() && provider.jwksPath().isPresent()) {
             builder.jwksPath(provider.jwksPath().get());
+            changed = true;
         }
         if (tenant.tokenPath().isEmpty() && provider.tokenPath().isPresent()) {
             builder.tokenPath(provider.tokenPath().get());
+            changed = true;
         }
         if (tenant.userInfoPath().isEmpty() && provider.userInfoPath().isPresent()) {
             builder.userInfoPath(provider.userInfoPath().get());
+            changed = true;
         }
 
         // authentication
         var authentication = builder.authentication();
         if (tenant.authentication().idTokenRequired().isEmpty() && provider.authentication().idTokenRequired().isPresent()) {
             authentication.idTokenRequired(provider.authentication().idTokenRequired().get());
+            changed = true;
         }
         if (tenant.authentication().userInfoRequired().isEmpty() && provider.authentication().userInfoRequired().isPresent()) {
             authentication.userInfoRequired(provider.authentication().userInfoRequired().get());
+            changed = true;
         }
         if (tenant.authentication().pkceRequired().isEmpty() && provider.authentication().pkceRequired().isPresent()) {
             authentication.pkceRequired(provider.authentication().pkceRequired().get());
+            changed = true;
         }
         if (tenant.authentication().scopes().isEmpty() && provider.authentication().scopes().isPresent()) {
             authentication.scopes(provider.authentication().scopes().get());
+            changed = true;
         }
         if (tenant.authentication().scopeSeparator().isEmpty() && provider.authentication().scopeSeparator().isPresent()) {
             authentication.scopeSeparator(provider.authentication().scopeSeparator().get());
+            changed = true;
         }
         if (tenant.authentication().addOpenidScope().isEmpty() && provider.authentication().addOpenidScope().isPresent()) {
             authentication.addOpenidScope(provider.authentication().addOpenidScope().get());
+            changed = true;
         }
         if (tenant.authentication().forceRedirectHttpsScheme().isEmpty()
                 && provider.authentication().forceRedirectHttpsScheme().isPresent()) {
             authentication.forceRedirectHttpsScheme(provider.authentication().forceRedirectHttpsScheme().get());
+            changed = true;
         }
         if (tenant.authentication().responseMode().isEmpty() && provider.authentication().responseMode().isPresent()) {
             authentication.responseMode(provider.authentication().responseMode().get());
+            changed = true;
         }
         if (tenant.authentication().redirectPath().isEmpty() && provider.authentication().redirectPath().isPresent()) {
             authentication.redirectPath(provider.authentication().redirectPath().get());
+            changed = true;
         }
         authentication.end();
 
@@ -656,14 +674,17 @@ public final class OidcUtils {
         if (tenant.credentials().clientSecret().method().isEmpty()
                 && provider.credentials().clientSecret().method().isPresent()) {
             credentials.clientSecret().method(provider.credentials().clientSecret().method().get()).end();
+            changed = true;
         }
         var jwt = credentials.jwt();
         if (tenant.credentials().jwt().audience().isEmpty() && provider.credentials().jwt().audience().isPresent()) {
             jwt.audience(provider.credentials().jwt().audience().get());
+            changed = true;
         }
         if (tenant.credentials().jwt().signatureAlgorithm().isEmpty()
                 && provider.credentials().jwt().signatureAlgorithm().isPresent()) {
             jwt.signatureAlgorithm(provider.credentials().jwt().signatureAlgorithm().get());
+            changed = true;
         }
         jwt.end();
         credentials.end();
@@ -672,17 +693,20 @@ public final class OidcUtils {
         var token = builder.token();
         if (tenant.token().issuer().isEmpty() && provider.token().issuer().isPresent()) {
             token.issuer(provider.token().issuer().get());
+            changed = true;
         }
         if (tenant.token().principalClaim().isEmpty() && provider.token().principalClaim().isPresent()) {
             token.principalClaim(provider.token().principalClaim().get());
+            changed = true;
         }
         if (tenant.token().verifyAccessTokenWithUserInfo().isEmpty()
                 && provider.token().verifyAccessTokenWithUserInfo().isPresent()) {
             token.verifyAccessTokenWithUserInfo(provider.token().verifyAccessTokenWithUserInfo().get());
+            changed = true;
         }
         token.end();
 
-        return builder.build();
+        return changed ? builder.build() : tenant;
     }
 
     static OidcTenantConfig resolveProviderConfig(OidcTenantConfig oidcTenantConfig) {
@@ -693,6 +717,41 @@ public final class OidcUtils {
             return oidcTenantConfig;
         }
 
+    }
+
+    /**
+     * Resolves the well-known OpenId Connect provider configuration and properties derived from other properties.
+     * The tenant configuration is not modified. It is returned when no property needs to be resolved,
+     * otherwise a new tenant configuration is returned.
+     *
+     * @param oidcTenantConfig tenant configuration
+     * @return resolved tenant configuration
+     */
+    static OidcTenantConfig resolveTenantConfig(OidcTenantConfig oidcTenantConfig) {
+        final OidcTenantConfig oidcConfig = resolveProviderConfig(oidcTenantConfig);
+        if (oidcConfig == null || !oidcConfig.tenantEnabled() || oidcConfig.authServerUrl().isEmpty()) {
+            return oidcConfig;
+        }
+        // expired ID tokens must be refreshed when the refresh token time skew is configured
+        final boolean refreshExpired = !isServiceApp(oidcConfig) && !oidcConfig.token().refreshExpired()
+                && oidcConfig.token().refreshTokenTimeSkew().isPresent();
+        // UserInfo is required unless it has been disabled when it provides roles, verifies service access tokens
+        // or when the ID token is not required
+        final boolean userInfoRequired = oidcConfig.authentication().userInfoRequired().isEmpty()
+                && (oidcConfig.roles().source().orElse(null) == Roles.Source.userinfo
+                        || (oidcConfig.token().verifyAccessTokenWithUserInfo().orElse(false) && !isWebApp(oidcConfig))
+                        || !oidcConfig.authentication().idTokenRequired().orElse(true));
+        if (!refreshExpired && !userInfoRequired) {
+            return oidcConfig;
+        }
+        var builder = OidcTenantConfig.builder(oidcConfig);
+        if (refreshExpired) {
+            builder.token().refreshExpired().end();
+        }
+        if (userInfoRequired) {
+            builder.authentication().userInfoRequired().end();
+        }
+        return builder.build();
     }
 
     public static byte[] getSha256Digest(String value) throws NoSuchAlgorithmException {

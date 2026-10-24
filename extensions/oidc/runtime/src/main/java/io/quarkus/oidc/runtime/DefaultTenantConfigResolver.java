@@ -44,7 +44,6 @@ public class DefaultTenantConfigResolver {
     private static final String REPLACE_TENANT_CONFIG_CONTEXT = "replace-tenant-configuration-context";
     private static final String REMOVE_SESSION_COOKIE = "remove-session-cookie";
     private final ConcurrentHashMap<String, BackChannelLogoutTokenCache> backChannelLogoutTokens = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, ResolvedProviderConfig> resolvedProviderConfigs = new ConcurrentHashMap<>();
     private final BlockingTaskRunner<OidcTenantConfig> blockingRequestContext;
     private final boolean securityEventObserved;
     private final TenantConfigBean tenantConfigBean;
@@ -257,12 +256,11 @@ public class DefaultTenantConfigResolver {
                     //shouldn't happen, but guard against it anyway
                     oidcConfig = Uni.createFrom().nullItem();
                 }
-                oidcConfig = oidcConfig.memoize().indefinitely();
+                // resolve the tenant config before memoizing, so that the same config is used for the whole request
+                oidcConfig = oidcConfig.onItem().transform(this::resolveDynamicTenantConfig).memoize().indefinitely();
                 if (oidcConfig == null) {
                     //shouldn't happen, but guard against it anyway
                     oidcConfig = Uni.createFrom().nullItem();
-                } else {
-                    oidcConfig = oidcConfig.onItem().transform(this::resolveProviderConfig);
                 }
                 context.put(CURRENT_DYNAMIC_TENANT_CONFIG, oidcConfig);
             }
@@ -271,23 +269,16 @@ public class DefaultTenantConfigResolver {
         return Uni.createFrom().nullItem();
     }
 
-    /**
-     * Merges the dynamic tenant configuration with the well-known provider configuration.
-     * The same merged configuration is returned for as long as the {@link TenantConfigResolver} returns the same tenant
-     * configuration instance, otherwise every request would update the dynamic tenant context.
-     */
-    private OidcTenantConfig resolveProviderConfig(OidcTenantConfig tenantConfig) {
-        if (tenantConfig == null || tenantConfig.provider().isEmpty()) {
-            return tenantConfig;
-        }
-        var tenantId = tenantConfig.tenantId()
-                .orElseThrow(() -> new OIDCException("Tenant configuration must have tenant id"));
-        return resolvedProviderConfigs.compute(tenantId, (ignored, resolved) -> {
-            if (resolved != null && resolved.tenantConfig() == tenantConfig) {
-                return resolved;
+    private OidcTenantConfig resolveDynamicTenantConfig(OidcTenantConfig tenantConfig) {
+        OidcTenantConfig resolvedConfig = OidcUtils.resolveTenantConfig(tenantConfig);
+        if (resolvedConfig != null && resolvedConfig.tenantId().isPresent()) {
+            TenantConfigContext tenantContext = tenantConfigBean.getDynamicTenant(resolvedConfig.tenantId().get());
+            if (tenantContext != null && resolvedConfig.equals(tenantContext.getOidcTenantConfig())) {
+                // keep using the equal tenant context config, it can have properties enabled by the OIDC provider metadata
+                return tenantContext.getOidcTenantConfig();
             }
-            return new ResolvedProviderConfig(tenantConfig, OidcUtils.resolveProviderConfig(tenantConfig));
-        }).resolvedTenantConfig();
+        }
+        return resolvedConfig;
     }
 
     private Uni<TenantConfigContext> getDynamicTenantContext(RoutingContext context) {
@@ -383,6 +374,4 @@ public class DefaultTenantConfigResolver {
         return rootPath;
     }
 
-    private record ResolvedProviderConfig(OidcTenantConfig tenantConfig, OidcTenantConfig resolvedTenantConfig) {
-    }
 }

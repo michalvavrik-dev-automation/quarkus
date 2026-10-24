@@ -202,13 +202,8 @@ final class OidcTenantConfigImpl implements OidcTenantConfig {
         PROXY_CONFIGURATION_NAME,
         JWT_BEARER_TOKEN_PATH,
         PAR,
-        PAR_ENABLED,
         RAR,
-        RAR_SIMPLE,
-        RAR_ARRAY,
-        RAR_TYPE,
         REFRESH_TOKEN_CACHE_TIME_TO_LIVE,
-        PAR_PATH,
         CREDENTIALS_ATTESTATION,
         CREDENTIALS_ATTESTATION_ENABLED,
         CREDENTIALS_ATTESTATION_SIGNATURE_ALGORITHM
@@ -887,13 +882,11 @@ final class OidcTenantConfigImpl implements OidcTenantConfig {
                 return new PushedAuthorizationRequest() {
                     @Override
                     public Optional<Boolean> enabled() {
-                        invocationsRecorder.put(ConfigMappingMethods.PAR_ENABLED, true);
                         return Optional.empty();
                     }
 
                     @Override
                     public Optional<String> path() {
-                        invocationsRecorder.put(ConfigMappingMethods.PAR_PATH, true);
                         return Optional.empty();
                     }
                 };
@@ -905,19 +898,16 @@ final class OidcTenantConfigImpl implements OidcTenantConfig {
                 return Optional.of(new RichAuthorizationRequests() {
                     @Override
                     public Map<String, String> simple() {
-                        invocationsRecorder.put(ConfigMappingMethods.RAR_SIMPLE, true);
                         return Map.of();
                     }
 
                     @Override
                     public Map<String, List<String>> array() {
-                        invocationsRecorder.put(ConfigMappingMethods.RAR_ARRAY, true);
                         return Map.of();
                     }
 
                     @Override
                     public String type() {
-                        invocationsRecorder.put(ConfigMappingMethods.RAR_TYPE, true);
                         return "";
                     }
                 });

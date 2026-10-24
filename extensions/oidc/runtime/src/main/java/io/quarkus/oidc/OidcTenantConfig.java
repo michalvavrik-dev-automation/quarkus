@@ -21,8 +21,14 @@ import io.quarkus.security.identity.SecurityIdentityAugmentor;
 
 public class OidcTenantConfig extends OidcClientCommonConfig implements io.quarkus.oidc.runtime.OidcTenantConfig {
 
+    /**
+     * Configuration this instance has been created from, it determines equality of tenant configurations.
+     */
+    private final io.quarkus.oidc.runtime.OidcTenantConfig mapping;
+
     private OidcTenantConfig(io.quarkus.oidc.runtime.OidcTenantConfig mapping) {
         super(mapping);
+        this.mapping = mapping;
         tenantId = mapping.tenantId();
         tenantEnabled = mapping.tenantEnabled();
         applicationType = mapping.applicationType().map(Enum::toString).map(ApplicationType::valueOf);
@@ -740,27 +746,11 @@ public class OidcTenantConfig extends OidcClientCommonConfig implements io.quark
     }
 
     /**
-     * @deprecated use the {@link #token()} method instead
-     */
-    @Deprecated(since = "3.18", forRemoval = true)
-    public Token getToken() {
-        return token;
-    }
-
-    /**
      * @deprecated use the {@link #authentication()} method instead
      */
     @Deprecated(since = "3.18", forRemoval = true)
     public Authentication getAuthentication() {
         return authentication;
-    }
-
-    /**
-     * @deprecated build this config with the {@link OidcTenantConfigBuilder} builder
-     */
-    @Deprecated(since = "3.18", forRemoval = true)
-    public void setTenantEnabled(boolean enabled) {
-        this.tenantEnabled = enabled;
     }
 
     /**
@@ -1023,40 +1013,12 @@ public class OidcTenantConfig extends OidcClientCommonConfig implements io.quark
 
         @Override
         public PushedAuthorizationRequest par() {
-            return new PushedAuthorizationRequest() {
-                @Override
-                public Optional<Boolean> enabled() {
-                    return parEnabled;
-                }
-
-                @Override
-                public Optional<String> path() {
-                    return parEndpoint;
-                }
-            };
+            return par;
         }
 
         @Override
         public Optional<RichAuthorizationRequests> rar() {
-            if (rarTypeField == null) {
-                return Optional.empty();
-            }
-            return Optional.of(new RichAuthorizationRequests() {
-                @Override
-                public Map<String, String> simple() {
-                    return rarStringTypeFields;
-                }
-
-                @Override
-                public Map<String, List<String>> array() {
-                    return rarArrayTypeFields;
-                }
-
-                @Override
-                public String type() {
-                    return rarTypeField;
-                }
-            });
+            return rar;
         }
 
         /**
@@ -1385,15 +1347,9 @@ public class OidcTenantConfig extends OidcClientCommonConfig implements io.quark
 
         private Optional<Set<CacheControl>> cacheControl = Optional.empty();
 
-        private Optional<Boolean> parEnabled = Optional.empty();
+        private PushedAuthorizationRequest par;
 
-        private Optional<String> parEndpoint = Optional.empty();
-
-        private Map<String, String> rarStringTypeFields = Map.of();
-
-        private Map<String, List<String>> rarArrayTypeFields = Map.of();
-
-        private String rarTypeField = null;
+        private Optional<RichAuthorizationRequests> rar = Optional.empty();
 
         public void setUserInfoRequired(boolean userInfoRequired) {
             this.userInfoRequired = Optional.of(userInfoRequired);
@@ -1438,14 +1394,8 @@ public class OidcTenantConfig extends OidcClientCommonConfig implements io.quark
             pkceRequired = mapping.pkceRequired();
             stateSecret = mapping.stateSecret();
             cacheControl = mapping.cacheControl();
-            parEnabled = mapping.par().enabled();
-            parEndpoint = mapping.par().path();
-            var rar = mapping.rar().orElse(null);
-            if (rar != null) {
-                rarStringTypeFields = rar.simple();
-                rarArrayTypeFields = rar.array();
-                rarTypeField = rar.type();
-            }
+            par = mapping.par();
+            rar = mapping.rar();
         }
     }
 
@@ -1742,10 +1692,6 @@ public class OidcTenantConfig extends OidcClientCommonConfig implements io.quark
          * Token binding options
          */
         Binding binding = new Binding();
-
-        public void setRefreshExpired(boolean refreshExpired) {
-            this.refreshExpired = refreshExpired;
-        }
 
         public io.quarkus.oidc.runtime.OidcTenantConfig.Binding binding() {
             return binding;
@@ -2194,6 +2140,20 @@ public class OidcTenantConfig extends OidcClientCommonConfig implements io.quark
     @Override
     public Optional<io.quarkus.oidc.runtime.OidcTenantConfig.Provider> provider() {
         return provider.map(Enum::toString).map(io.quarkus.oidc.runtime.OidcTenantConfig.Provider::valueOf);
+    }
+
+    /**
+     * Tenant configurations are equal when the configurations they have been created from are equal.
+     * Properties changed after the tenant configuration has been created are not compared.
+     */
+    @Override
+    public boolean equals(Object o) {
+        return this == o || (o instanceof OidcTenantConfig that && mapping.equals(that.mapping));
+    }
+
+    @Override
+    public int hashCode() {
+        return mapping.hashCode();
     }
 
     /**

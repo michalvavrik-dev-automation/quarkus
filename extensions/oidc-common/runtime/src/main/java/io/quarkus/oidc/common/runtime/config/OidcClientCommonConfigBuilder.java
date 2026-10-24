@@ -59,6 +59,26 @@ public abstract class OidcClientCommonConfigBuilder<T> extends OidcCommonConfigB
         public Credentials credentials() {
             return credentials;
         }
+
+        /**
+         * Compares properties declared by this class and its superclass,
+         * see {@link #commonConfigEquals(OidcCommonConfigImpl)}.
+         */
+        protected final boolean clientCommonConfigEquals(OidcClientCommonConfigImpl that) {
+            return commonConfigEquals(that)
+                    && Objects.equals(tokenPath, that.tokenPath)
+                    && Objects.equals(revokePath, that.revokePath)
+                    && Objects.equals(clientId, that.clientId)
+                    && Objects.equals(clientName, that.clientName)
+                    && Objects.equals(credentials, that.credentials);
+        }
+
+        /**
+         * @return hash code of properties declared by this class and its superclass
+         */
+        protected final int clientCommonConfigHashCode() {
+            return Objects.hash(commonConfigHashCode(), tokenPath, revokePath, clientId, clientName, credentials);
+        }
     }
 
     private Optional<String> tokenPath;

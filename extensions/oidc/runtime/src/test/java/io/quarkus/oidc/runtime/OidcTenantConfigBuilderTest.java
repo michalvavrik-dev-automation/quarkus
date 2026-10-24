@@ -8,14 +8,17 @@ import static io.quarkus.oidc.runtime.OidcTenantConfig.Roles.Source.userinfo;
 import static io.quarkus.oidc.runtime.OidcTenantConfig.SignatureAlgorithm.PS384;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Modifier;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 import org.junit.jupiter.api.Test;
 
@@ -28,14 +31,19 @@ import io.quarkus.oidc.OidcTenantConfigBuilder.JwksBuilder;
 import io.quarkus.oidc.OidcTenantConfigBuilder.RolesBuilder;
 import io.quarkus.oidc.OidcTenantConfigBuilder.TokenStateManagerBuilder;
 import io.quarkus.oidc.common.runtime.OidcConstants;
+import io.quarkus.oidc.common.runtime.config.OidcClientCommonConfig.Credentials.Attestation.AttestationSignatureAlgorithm;
 import io.quarkus.oidc.common.runtime.config.OidcClientCommonConfig.Credentials.Jwt.Source;
 import io.quarkus.oidc.common.runtime.config.OidcClientCommonConfig.Credentials.Secret.Method;
 import io.quarkus.oidc.common.runtime.config.OidcClientCommonConfigBuilder.CredentialsBuilder;
 import io.quarkus.oidc.common.runtime.config.OidcClientCommonConfigBuilder.JwtBuilder;
 import io.quarkus.oidc.common.runtime.config.OidcClientCommonConfigBuilder.SecretBuilder;
 import io.quarkus.oidc.runtime.OidcTenantConfig.ApplicationType;
+import io.quarkus.oidc.runtime.OidcTenantConfig.Authentication.CacheControl;
 import io.quarkus.oidc.runtime.OidcTenantConfig.Authentication.CookieSameSite;
+import io.quarkus.oidc.runtime.OidcTenantConfig.Logout.ClearSiteData;
+import io.quarkus.oidc.runtime.OidcTenantConfig.Logout.LogoutMode;
 import io.quarkus.oidc.runtime.OidcTenantConfig.Provider;
+import io.quarkus.oidc.runtime.OidcTenantConfig.SignatureAlgorithm;
 import io.quarkus.oidc.runtime.OidcTenantConfig.Token.DecryptionAlgorithm;
 import io.quarkus.oidc.runtime.OidcTenantConfig.TokenStateManager.EncryptionAlgorithm;
 import io.quarkus.oidc.runtime.OidcTenantConfig.TokenStateManager.Strategy;
@@ -45,6 +53,8 @@ import io.quarkus.oidc.runtime.builders.LogoutConfigBuilder.BackchannelBuilder;
 import io.quarkus.oidc.runtime.builders.TokenConfigBuilder;
 
 public class OidcTenantConfigBuilderTest {
+
+    private int comparedProperties;
 
     @Test
     public void testDefaultValues() {
@@ -666,6 +676,304 @@ public class OidcTenantConfigBuilderTest {
         assertNotNull(config.tls());
         assertEquals("Teacher!", config.tls().tlsConfigurationName().orElse(null));
         assertEquals("Kreacher!", config.proxy().proxyConfigurationName().orElse(null));
+    }
+
+    @Test
+    public void testEveryPropertyIsCompared() {
+        // OidcCommonConfig methods
+        assertCompared(OidcTenantConfigBuilder::authServerUrl, "https://server-1", "https://server-2");
+        assertCompared(OidcTenantConfigBuilder::discoveryPath, "discovery-1", "discovery-2");
+        assertCompared(OidcTenantConfigBuilder::discoveryEnabled, true, false);
+        assertCompared(OidcTenantConfigBuilder::registrationPath, "registration-1", "registration-2");
+        assertCompared(OidcTenantConfigBuilder::connectionDelay, Duration.ofSeconds(1), Duration.ofSeconds(2));
+        assertCompared(OidcTenantConfigBuilder::connectionRetryCount, 1, 2);
+        assertCompared(OidcTenantConfigBuilder::connectionTimeout, Duration.ofSeconds(1), Duration.ofSeconds(2));
+        assertCompared(OidcTenantConfigBuilder::useBlockingDnsLookup, true, false);
+        assertCompared(OidcTenantConfigBuilder::maxPoolSize, 1, 2);
+        assertCompared(OidcTenantConfigBuilder::followRedirects, true, false);
+        assertCompared(OidcTenantConfigBuilder::proxyConfigurationName, "proxy-1", "proxy-2");
+        assertCompared(OidcTenantConfigBuilder::tlsConfigurationName, "tls-1", "tls-2");
+
+        // OidcClientCommonConfig methods
+        assertCompared(OidcTenantConfigBuilder::tokenPath, "token-1", "token-2");
+        assertCompared(OidcTenantConfigBuilder::revokePath, "revoke-1", "revoke-2");
+        assertCompared(OidcTenantConfigBuilder::clientId, "client-1", "client-2");
+        assertCompared(OidcTenantConfigBuilder::clientName, "client-name-1", "client-name-2");
+        assertCompared((builder, secret) -> builder.credentials().secret(secret).end(), "secret-1", "secret-2");
+        assertCompared((builder, forAllEndpoints) -> {
+            var credentials = builder.credentials();
+            if (forAllEndpoints) {
+                credentials.forAllEndpoints();
+            }
+            credentials.end();
+        }, true, false);
+        assertCompared((builder, value) -> builder.credentials().clientSecret(value).end(), "value-1", "value-2");
+        assertCompared((builder, method) -> builder.credentials().clientSecret().method(method).endCredentials(),
+                Method.BASIC, Method.POST);
+        assertCompared((builder, key) -> builder.credentials().clientSecret().provider().key(key).end().endCredentials(),
+                "key-1", "key-2");
+        assertCompared((builder, name) -> builder.credentials().clientSecret().provider().name(name).end().endCredentials(),
+                "name-1", "name-2");
+        assertCompared((builder, keyringName) -> builder.credentials().clientSecret().provider().keyringName(keyringName)
+                .end().endCredentials(), "keyring-1", "keyring-2");
+        assertCompared((builder, assertion) -> builder.credentials().jwt().assertion(assertion).endCredentials(), true, false);
+        assertCompared((builder, audience) -> builder.credentials().jwt().audience(audience).endCredentials(),
+                "audience-1", "audience-2");
+        assertCompared((builder, claim) -> builder.credentials().jwt().claim("claim", claim).endCredentials(),
+                "claim-1", "claim-2");
+        assertCompared((builder, issuer) -> builder.credentials().jwt().issuer(issuer).endCredentials(),
+                "issuer-1", "issuer-2");
+        assertCompared((builder, keep) -> builder.credentials().jwt().keepAudienceTrailingSlash(keep).endCredentials(),
+                true, false);
+        assertCompared((builder, key) -> builder.credentials().jwt().key(key).endCredentials(), "key-1", "key-2");
+        assertCompared((builder, keyFile) -> builder.credentials().jwt().keyFile(keyFile).endCredentials(),
+                "key-file-1", "key-file-2");
+        assertCompared((builder, keyId) -> builder.credentials().jwt().keyId(keyId).endCredentials(), "kid-1", "kid-2");
+        assertCompared((builder, password) -> builder.credentials().jwt().keyPassword(password).endCredentials(),
+                "key-password-1", "key-password-2");
+        assertCompared((builder, keyStoreFile) -> builder.credentials().jwt().keyStoreFile(keyStoreFile).endCredentials(),
+                "key-store-1", "key-store-2");
+        assertCompared((builder, password) -> builder.credentials().jwt().keyStorePassword(password).endCredentials(),
+                "key-store-password-1", "key-store-password-2");
+        assertCompared((builder, lifespan) -> builder.credentials().jwt().lifespan(lifespan).endCredentials(), 1, 2);
+        assertCompared((builder, publicKey) -> builder.credentials().jwt().publicKey(publicKey).endCredentials(),
+                "public-key-1", "public-key-2");
+        assertCompared((builder, file) -> builder.credentials().jwt().publicKeyFile(file).endCredentials(),
+                "public-key-file-1", "public-key-file-2");
+        assertCompared((builder, secret) -> builder.credentials().jwt().secret(secret).endCredentials(),
+                "secret-1", "secret-2");
+        assertCompared((builder, key) -> builder.credentials().jwt().secretProvider().key(key).end().endCredentials(),
+                "key-1", "key-2");
+        assertCompared((builder, name) -> builder.credentials().jwt().secretProvider().name(name).end().endCredentials(),
+                "name-1", "name-2");
+        assertCompared((builder, keyringName) -> builder.credentials().jwt().secretProvider().keyringName(keyringName)
+                .end().endCredentials(), "keyring-1", "keyring-2");
+        assertCompared((builder, algorithm) -> builder.credentials().jwt().signatureAlgorithm(algorithm).endCredentials(),
+                "RS256", "ES256");
+        assertCompared((builder, source) -> builder.credentials().jwt().source(source).endCredentials(),
+                Source.CLIENT, Source.BEARER);
+        assertCompared((builder, subject) -> builder.credentials().jwt().subject(subject).endCredentials(),
+                "subject-1", "subject-2");
+        assertCompared((builder, tokenKeyId) -> builder.credentials().jwt().tokenKeyId(tokenKeyId).endCredentials(),
+                "token-kid-1", "token-kid-2");
+        assertCompared((builder, tokenPath) -> builder.credentials().jwt().tokenPath(tokenPath).endCredentials(),
+                Path.of("token-1"), Path.of("token-2"));
+        assertCompared((builder, enabled) -> {
+            var attestation = builder.credentials().attestation();
+            if (enabled) {
+                attestation.enabled();
+            }
+            attestation.end().end();
+        }, true, false);
+        assertCompared((builder, algorithm) -> builder.credentials().attestation().signatureAlgorithm(algorithm).end().end(),
+                AttestationSignatureAlgorithm.ES384, AttestationSignatureAlgorithm.ES512);
+
+        // OidcTenantConfig methods
+        assertCompared(OidcTenantConfigBuilder::tenantId, "tenant-1", "tenant-2");
+        assertCompared(OidcTenantConfigBuilder::tenantEnabled, true, false);
+        assertCompared(OidcTenantConfigBuilder::applicationType, ApplicationType.WEB_APP, ApplicationType.SERVICE);
+        assertCompared(OidcTenantConfigBuilder::authorizationPath, "authorization-1", "authorization-2");
+        assertCompared(OidcTenantConfigBuilder::userInfoPath, "user-info-1", "user-info-2");
+        assertCompared(OidcTenantConfigBuilder::introspectionPath, "introspection-1", "introspection-2");
+        assertCompared(OidcTenantConfigBuilder::jwksPath, "jwks-1", "jwks-2");
+        assertCompared(OidcTenantConfigBuilder::endSessionPath, "end-session-1", "end-session-2");
+        assertCompared(OidcTenantConfigBuilder::tenantPaths, List.of("/tenant-1"), List.of("/tenant-2"));
+        assertCompared(OidcTenantConfigBuilder::publicKey, "public-key-1", "public-key-2");
+        assertCompared(OidcTenantConfigBuilder::allowTokenIntrospectionCache, true, false);
+        assertCompared(OidcTenantConfigBuilder::allowUserInfoCache, true, false);
+        assertCompared(OidcTenantConfigBuilder::cacheUserInfoInIdtoken, true, false);
+        assertCompared(OidcTenantConfigBuilder::provider, Provider.GITHUB, Provider.GOOGLE);
+        assertCompared(OidcTenantConfigBuilder::dpop, Duration.ofSeconds(1), Duration.ofSeconds(2));
+        assertCompared((builder, name) -> builder.introspectionCredentials().name(name).end(), "name-1", "name-2");
+        assertCompared((builder, secret) -> builder.introspectionCredentials().secret(secret).end(), "secret-1", "secret-2");
+        assertCompared((builder, include) -> builder.introspectionCredentials().includeClientId(include).end(), true, false);
+        assertCompared((builder, path) -> builder.roles().roleClaimPath(path).end(), "path-1", "path-2");
+        assertCompared((builder, separator) -> builder.roles().roleClaimSeparator(separator).end(), ",", ";");
+        assertCompared((builder, source) -> builder.roles().source(source).end(), idtoken, userinfo);
+        assertCompared((builder, cacheSize) -> builder.jwks().cacheSize(cacheSize).end(), 1, 2);
+        assertCompared((builder, timeToLive) -> builder.jwks().cacheTimeToLive(timeToLive).end(),
+                Duration.ofSeconds(1), Duration.ofSeconds(2));
+        assertCompared((builder, interval) -> builder.jwks().cleanUpTimerInterval(interval).end(),
+                Duration.ofSeconds(1), Duration.ofSeconds(2));
+        assertCompared((builder, resolveEarly) -> builder.jwks().resolveEarly(resolveEarly).end(), true, false);
+        assertCompared((builder, tryAll) -> builder.jwks().tryAll(tryAll).end(), true, false);
+        assertCompared((builder, name) -> builder.certificateChain().leafCertificateName(name).end(), "leaf-1", "leaf-2");
+        assertCompared((builder, alias) -> builder.certificateChain().trustStoreCertAlias(alias).end(), "alias-1", "alias-2");
+        assertCompared((builder, file) -> builder.certificateChain().trustStoreFile(file).end(),
+                Path.of("store-1"), Path.of("store-2"));
+        assertCompared((builder, type) -> builder.certificateChain().trustStoreFileType(type).end(), "PKCS12", "JKS");
+        assertCompared((builder, password) -> builder.certificateChain().trustStorePassword(password).end(),
+                "password-1", "password-2");
+        assertCompared((builder, value) -> builder.codeGrant().extraParam("param", value).end(), "value-1", "value-2");
+        assertCompared((builder, value) -> builder.codeGrant().header("header", value).end(), "value-1", "value-2");
+        assertCompared((builder, algorithm) -> builder.tokenStateManager().encryptionAlgorithm(algorithm).end(),
+                EncryptionAlgorithm.A256GCMKW, EncryptionAlgorithm.DIR);
+        assertCompared((builder, required) -> builder.tokenStateManager().encryptionRequired(required).end(), true, false);
+        assertCompared((builder, secret) -> builder.tokenStateManager().encryptionSecret(secret).end(),
+                "secret-1", "secret-2");
+        assertCompared((builder, split) -> builder.tokenStateManager().splitTokens(split).end(), true, false);
+        assertCompared((builder, strategy) -> builder.tokenStateManager().strategy(strategy).end(),
+                Strategy.ID_TOKEN, Strategy.ID_REFRESH_TOKENS);
+        assertCompared((builder, server) -> builder.resourceMetadata().authorizationServer(server).end(),
+                "server-1", "server-2");
+        assertCompared((builder, enabled) -> builder.resourceMetadata().enabled(enabled).end(), true, false);
+        assertCompared((builder, force) -> builder.resourceMetadata().forceHttpsScheme(force).end(), true, false);
+        assertCompared((builder, resource) -> builder.resourceMetadata().resource(resource).end(),
+                "resource-1", "resource-2");
+        assertCompared((builder, scope) -> builder.resourceMetadata().scopes(scope).end(), "scope-1", "scope-2");
+        assertCompared((builder, force) -> builder.clientIdMetadata().forceHttpsScheme(force).end(), true, false);
+
+        // OidcTenantConfig.Logout methods
+        assertCompared((builder, path) -> builder.logout().path(path).end(), "/logout-1", "/logout-2");
+        assertCompared((builder, path) -> builder.logout().postLogoutPath(path).end(), "/post-logout-1", "/post-logout-2");
+        assertCompared((builder, param) -> builder.logout().postLogoutUriParam(param).end(), "param-1", "param-2");
+        assertCompared((builder, value) -> builder.logout().extraParam("param", value).end(), "value-1", "value-2");
+        assertCompared((builder, directive) -> builder.logout().clearSiteData(List.of(directive)).end(),
+                ClearSiteData.CACHE, ClearSiteData.COOKIES);
+        assertCompared((builder, mode) -> builder.logout().logoutMode(mode).end(), LogoutMode.QUERY, LogoutMode.FORM_POST);
+        assertCompared((builder, path) -> builder.logout().frontchannelPath(path).end(),
+                "/front-channel-1", "/front-channel-2");
+        assertCompared((builder, path) -> builder.logout().backchannel().path(path).endLogout(),
+                "/back-channel-1", "/back-channel-2");
+        assertCompared((builder, key) -> builder.logout().backchannel().logoutTokenKey(key).endLogout(), "sub", "sid");
+        assertCompared((builder, size) -> builder.logout().backchannel().tokenCacheSize(size).endLogout(), 1, 2);
+        assertCompared((builder, timeToLive) -> builder.logout().backchannel().tokenCacheTimeToLive(timeToLive).endLogout(),
+                Duration.ofSeconds(1), Duration.ofSeconds(2));
+        assertCompared((builder, interval) -> builder.logout().backchannel().cleanUpTimerInterval(interval).endLogout(),
+                Duration.ofSeconds(1), Duration.ofSeconds(2));
+
+        // OidcTenantConfig.Authentication methods
+        assertCompared((builder, add) -> builder.authentication().addOpenidScope(add).end(), true, false);
+        assertCompared((builder, allow) -> builder.authentication().allowMultipleCodeFlows(allow).end(), true, false);
+        assertCompared((builder, noStore) -> {
+            var authentication = builder.authentication();
+            if (noStore) {
+                authentication.cacheControl(CacheControl.NO_STORE);
+            }
+            authentication.end();
+        }, true, false);
+        assertCompared((builder, domain) -> builder.authentication().cookieDomain(domain).end(), "domain-1", "domain-2");
+        assertCompared((builder, force) -> builder.authentication().cookieForceSecure(force).end(), true, false);
+        assertCompared((builder, path) -> builder.authentication().cookiePath(path).end(), "/cookie-1", "/cookie-2");
+        assertCompared((builder, header) -> builder.authentication().cookiePathHeader(header).end(), "header-1", "header-2");
+        assertCompared((builder, sameSite) -> builder.authentication().cookieSameSite(sameSite).end(),
+                CookieSameSite.STRICT, CookieSameSite.NONE);
+        assertCompared((builder, suffix) -> builder.authentication().cookieSuffix(suffix).end(), "suffix-1", "suffix-2");
+        assertCompared((builder, path) -> builder.authentication().errorPath(path).end(), "/error-1", "/error-2");
+        assertCompared((builder, value) -> builder.authentication().extraParam("param", value).end(), "value-1", "value-2");
+        assertCompared((builder, fail) -> builder.authentication().failOnMissingStateParam(fail).end(), true, false);
+        assertCompared((builder, fail) -> builder.authentication().failOnUnresolvedKid(fail).end(), true, false);
+        assertCompared((builder, force) -> builder.authentication().forceRedirectHttpsScheme(force).end(), true, false);
+        assertCompared((builder, param) -> builder.authentication().forwardParams(param).end(), "param-1", "param-2");
+        assertCompared((builder, required) -> builder.authentication().idTokenRequired(required).end(), true, false);
+        assertCompared((builder, lifespan) -> builder.authentication().internalIdTokenLifespan(lifespan).end(),
+                Duration.ofSeconds(1), Duration.ofSeconds(2));
+        assertCompared((builder, redirect) -> builder.authentication().javaScriptAutoRedirect(redirect).end(), true, false);
+        assertCompared((builder, required) -> builder.authentication().nonceRequired(required).end(), true, false);
+        assertCompared((builder, enabled) -> {
+            var authentication = builder.authentication();
+            if (enabled) {
+                authentication.par();
+            }
+            authentication.end();
+        }, true, false);
+        assertCompared((builder, path) -> builder.authentication().par(path).end(), "/par-1", "/par-2");
+        assertCompared((builder, required) -> builder.authentication().pkceRequired(required).end(), true, false);
+        assertCompared((builder, type) -> builder.authentication().rar(type, Map.of("key", "value")).end(),
+                "type-1", "type-2");
+        assertCompared((builder, path) -> builder.authentication().redirectPath(path).end(), "/redirect-1", "/redirect-2");
+        assertCompared((builder, remove) -> builder.authentication().removeRedirectParameters(remove).end(), true, false);
+        assertCompared((builder, mode) -> builder.authentication().responseMode(mode).end(), QUERY, FORM_POST);
+        assertCompared((builder, restore) -> builder.authentication().restorePathAfterRedirect(restore).end(), true, false);
+        assertCompared((builder, separator) -> builder.authentication().scopeSeparator(separator).end(), ",", ";");
+        assertCompared((builder, scope) -> builder.authentication().scopes(scope).end(), "scope-1", "scope-2");
+        assertCompared((builder, extension) -> builder.authentication().sessionAgeExtension(extension).end(),
+                Duration.ofSeconds(1), Duration.ofSeconds(2));
+        assertCompared((builder, path) -> builder.authentication().sessionExpiredPath(path).end(),
+                "/expired-1", "/expired-2");
+        assertCompared((builder, age) -> builder.authentication().stateCookieAge(age).end(),
+                Duration.ofSeconds(1), Duration.ofSeconds(2));
+        assertCompared((builder, sameSite) -> builder.authentication().stateCookieSameSite(sameSite).end(),
+                CookieSameSite.STRICT, CookieSameSite.NONE);
+        assertCompared((builder, secret) -> builder.authentication().stateSecret(secret).end(),
+                "state-secret-1", "state-secret-2");
+        assertCompared((builder, required) -> builder.authentication().userInfoRequired(required).end(), true, false);
+        assertCompared((builder, verify) -> builder.authentication().verifyAccessToken(verify).end(), true, false);
+
+        // OidcTenantConfig.Token methods
+        assertCompared((builder, age) -> builder.token().age(age).end(), Duration.ofSeconds(1), Duration.ofSeconds(2));
+        assertCompared((builder, allow) -> builder.token().allowJwtIntrospection(allow).end(), true, false);
+        assertCompared((builder, allow) -> builder.token().allowOpaqueTokenIntrospection(allow).end(), true, false);
+        assertCompared((builder, audience) -> builder.token().audience(audience).end(), "audience-1", "audience-2");
+        assertCompared((builder, scheme) -> builder.token().authorizationScheme(scheme).end(), "Bearer", "DPoP");
+        assertCompared((builder, certificate) -> builder.token().binding().certificate(certificate).end().end(), true, false);
+        assertCompared((builder, name) -> builder.token().customizerName(name).end(), "customizer-1", "customizer-2");
+        assertCompared((builder, decrypt) -> builder.token().decryptAccessToken(decrypt).end(), true, false);
+        assertCompared((builder, decrypt) -> builder.token().decryptIdToken(decrypt).end(), true, false);
+        assertCompared((builder, algorithm) -> builder.token().decryptionAlgorithm(algorithm).end(),
+                DecryptionAlgorithm.RSA_OAEP, DecryptionAlgorithm.RSA_OAEP_256);
+        assertCompared((builder, location) -> builder.token().decryptionKeyLocation(location).end(),
+                "location-1", "location-2");
+        assertCompared((builder, interval) -> builder.token().forcedJwkRefreshInterval(interval).end(),
+                Duration.ofSeconds(1), Duration.ofSeconds(2));
+        assertCompared((builder, header) -> builder.token().header(header).end(), "header-1", "header-2");
+        assertCompared((builder, required) -> builder.token().issuedAtRequired(required).end(), true, false);
+        assertCompared((builder, issuer) -> builder.token().issuer(issuer).end(), "issuer-1", "issuer-2");
+        assertCompared((builder, grace) -> builder.token().lifespanGrace(grace).end(), 1, 2);
+        assertCompared((builder, claim) -> builder.token().principalClaim(claim).end(), "claim-1", "claim-2");
+        assertCompared((builder, refresh) -> builder.token().refreshExpired(refresh).end(), true, false);
+        assertCompared((builder, timeToLive) -> builder.token().refreshTokenCacheTimeToLive(timeToLive).end(),
+                Duration.ofSeconds(1), Duration.ofSeconds(2));
+        assertCompared((builder, skew) -> builder.token().refreshTokenTimeSkew(skew).end(),
+                Duration.ofSeconds(1), Duration.ofSeconds(2));
+        assertCompared((builder, require) -> builder.token().requireJwtIntrospectionOnly(require).end(), true, false);
+        assertCompared((builder, value) -> builder.token().requiredClaims("claim", value).end(), "value-1", "value-2");
+        assertCompared((builder, algorithm) -> builder.token().signatureAlgorithm(algorithm).end(),
+                SignatureAlgorithm.RS256, PS384);
+        assertCompared((builder, required) -> builder.token().subjectRequired(required).end(), true, false);
+        assertCompared((builder, type) -> builder.token().tokenType(type).end(), "type-1", "type-2");
+        assertCompared((builder, verify) -> builder.token().verifyAccessTokenWithUserInfo(verify).end(), true, false);
+
+        // a new property must be compared as well
+        assertEquals(countProperties(io.quarkus.oidc.runtime.OidcTenantConfig.class), comparedProperties);
+    }
+
+    @SuppressWarnings("removal")
+    @Test
+    public void testPropertyChangedAfterCreationIsNotCompared() {
+        OidcTenantConfig config = OidcTenantConfig.builder().tenantId("tenant").build();
+        OidcTenantConfig sameConfig = OidcTenantConfig.builder().tenantId("tenant").build();
+        // UserInfo is required when the OIDC provider metadata is discovered and UserInfo is injected
+        config.getAuthentication().setUserInfoRequired(true);
+        assertEquals(sameConfig, config);
+    }
+
+    private <T> void assertCompared(BiConsumer<OidcTenantConfigBuilder, T> setter, T value, T otherValue) {
+        comparedProperties++;
+        OidcTenantConfig config = build(setter, value);
+        OidcTenantConfig sameConfig = build(setter, value);
+        assertEquals(config, sameConfig);
+        assertEquals(config.hashCode(), sameConfig.hashCode());
+        assertNotEquals(config, build(setter, otherValue));
+    }
+
+    private static <T> OidcTenantConfig build(BiConsumer<OidcTenantConfigBuilder, T> setter, T value) {
+        var builder = OidcTenantConfig.builder();
+        setter.accept(builder, value);
+        return builder.build();
+    }
+
+    private static int countProperties(Class<?> configGroup) {
+        int properties = 0;
+        for (java.lang.reflect.Method method : configGroup.getMethods()) {
+            if (method.isDefault() || Modifier.isStatic(method.getModifiers()) || method.getParameterCount() > 0) {
+                continue;
+            }
+            Class<?> type = method.getReturnType();
+            boolean configGroupType = type.isInterface() && type.getName().startsWith("io.quarkus.oidc");
+            properties += configGroupType ? countProperties(type) : 1;
+        }
+        return properties;
     }
 
     @Test
