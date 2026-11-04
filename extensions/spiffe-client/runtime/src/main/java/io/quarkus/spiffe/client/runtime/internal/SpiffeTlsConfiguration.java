@@ -4,9 +4,12 @@ import java.net.Socket;
 import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.cert.CertPathValidator;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.PKIXParameters;
@@ -14,6 +17,7 @@ import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -227,8 +231,8 @@ record SpiffeTlsConfiguration(String tlsConfigurationName, String spiffeId,
 
     /**
      * Presents the workload X.509-SVID. The JSSE asks for the alias first and for the private key and the certificate
-     * chain afterwards; the alias identifies the document, so that a rotation in between never pairs a new key with
-     * an old chain.
+     * chain afterwards; the alias is a fingerprint of the document, so that a rotation in between never pairs a new
+     * key with an old chain.
      */
     static final class SpiffeKeyManager extends X509ExtendedKeyManager implements KeyCertOptions {
 
@@ -358,7 +362,14 @@ record SpiffeTlsConfiguration(String tlsConfigurationName, String spiffeId,
         }
 
         private static String alias(WorkloadCertificateDocument document) {
-            return ALIAS_PREFIX + document.certificateChain().chain().get(0).getSerialNumber().toString(16);
+            // a fingerprint of the leaf identifies the document even when a CA reuses serial numbers
+            X509Certificate leaf = document.certificateChain().chain().get(0);
+            try {
+                byte[] digest = MessageDigest.getInstance("SHA-256").digest(leaf.getEncoded());
+                return ALIAS_PREFIX + HexFormat.of().formatHex(digest, 0, 8);
+            } catch (CertificateEncodingException | NoSuchAlgorithmException e) {
+                throw new IllegalStateException("Unable to compute the fingerprint of the X.509-SVID", e);
+            }
         }
     }
 
