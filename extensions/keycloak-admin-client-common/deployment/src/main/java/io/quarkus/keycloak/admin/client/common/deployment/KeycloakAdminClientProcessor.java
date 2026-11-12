@@ -14,7 +14,12 @@ import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.RuntimeInitializedClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ServiceProviderBuildItem;
 import io.quarkus.deployment.pkg.builditem.CurateOutcomeBuildItem;
-import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientJsonMapper;
+import io.quarkus.keycloak.admin.client.common.runtime.jackson.MultivaluedHashMapValueDeserializer3;
+import io.quarkus.keycloak.admin.client.common.runtime.jackson.MultivaluedHashMapValueSerializer3;
+import io.quarkus.keycloak.admin.client.common.runtime.jackson.ResourceTypeMapDeserializer3;
+import io.quarkus.keycloak.admin.client.common.runtime.jackson.StringListMapDeserializer3;
+import io.quarkus.keycloak.admin.client.common.runtime.jackson.StringOrArrayDeserializer3;
+import io.quarkus.keycloak.admin.client.common.runtime.jackson.StringOrArraySerializer3;
 import io.quarkus.maven.dependency.ResolvedDependency;
 
 public class KeycloakAdminClientProcessor {
@@ -45,20 +50,23 @@ public class KeycloakAdminClientProcessor {
         serviceProviders.produce(ServiceProviderBuildItem.allProvidersFromClassPath(KEYCLOAK_RAW_JSON_VALUE_SUPPORT_SPI));
 
         // Jackson 3 (de)serializers instantiated reflectively through the Keycloak annotation introspector,
-        // see org.keycloak.admin.client.jackson3.KeycloakAnnotationIntrospector3
+        // by the mapper of the Keycloak admin client (used by the representations through the KeycloakJsonMapper SPI)
+        // and by the copy of it used by the Quarkus extensions, see KeycloakAdminClientJsonMapper
         reflectiveClasses.produce(ReflectiveClassBuildItem.builder(
                 "org.keycloak.admin.client.jackson3.StringOrArrayDeserializer3",
                 "org.keycloak.admin.client.jackson3.StringOrArraySerializer3",
                 "org.keycloak.admin.client.jackson3.StringListMapDeserializer3",
                 "org.keycloak.admin.client.jackson3.MultivaluedHashMapValueDeserializer3",
                 "org.keycloak.admin.client.jackson3.MultivaluedHashMapValueSerializer3",
-                "org.keycloak.admin.client.jackson3.ResourceTypeMapDeserializer3")
+                "org.keycloak.admin.client.jackson3.ResourceTypeMapDeserializer3",
+                StringOrArrayDeserializer3.class.getName(),
+                StringOrArraySerializer3.class.getName(),
+                StringListMapDeserializer3.class.getName(),
+                MultivaluedHashMapValueDeserializer3.class.getName(),
+                MultivaluedHashMapValueSerializer3.class.getName(),
+                ResourceTypeMapDeserializer3.class.getName())
                 .reason(getClass().getName())
                 .constructors().build());
-        // the mapper configured by the Keycloak admin client is accessed reflectively, see KeycloakAdminClientJsonMapper
-        reflectiveClasses.produce(ReflectiveClassBuildItem.builder(KeycloakAdminClientJsonMapper.KEYCLOAK_MAPPER_HOLDER)
-                .reason(getClass().getName())
-                .fields().build());
     }
 
     /**
