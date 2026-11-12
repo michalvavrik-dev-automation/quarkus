@@ -7,6 +7,7 @@ import org.jboss.jandex.Type;
 import org.jboss.resteasy.client.jaxrs.internal.ResteasyClientBuilderImpl;
 import org.jboss.resteasy.client.jaxrs.internal.proxy.ProxyBuilderImpl;
 import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.jackson3.JacksonProvider3;
 import org.keycloak.admin.client.spi.ResteasyClientProvider;
 import org.keycloak.common.util.MultivaluedHashMap;
 
@@ -49,10 +50,15 @@ public class KeycloakAdminResteasyClientProcessor {
     }
 
     @BuildStep
-    ReflectiveClassBuildItem reflect() {
-        return ReflectiveClassBuildItem.builder(ResteasyClientBuilderImpl.class, ProxyBuilderImpl.class)
+    void reflect(BuildProducer<ReflectiveClassBuildItem> reflectiveClasses) {
+        reflectiveClasses.produce(ReflectiveClassBuildItem.builder(ResteasyClientBuilderImpl.class, ProxyBuilderImpl.class)
                 .reason(getClass().getName())
-                .methods().build();
+                .methods().build());
+        // the Jackson provider of the Keycloak admin client registered with the RESTEasy client,
+        // RESTEasy introspects it like the JSON providers registered by the Quarkus RESTEasy extensions
+        reflectiveClasses.produce(ReflectiveClassBuildItem.builder(JacksonProvider3.class)
+                .reason(getClass().getName())
+                .methods().fields().build());
     }
 
     @BuildStep

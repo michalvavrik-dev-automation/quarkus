@@ -51,10 +51,6 @@
                     <groupId>org.jboss.resteasy</groupId>
                     <artifactId>resteasy-core-spi</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>dev.resteasy.providers</groupId>
-                    <artifactId>resteasy-jackson-provider</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
@@ -90,11 +86,11 @@
                 <configuration>
                     <removedResources>
                         <artifact>
-                            <!-- The Keycloak RESTEasy Classic provider and Jackson provider are replaced by the ones of this
-                                 extension, their service file is removed so that the service file of this extension is the
+                            <!-- The Keycloak RESTEasy Classic provider is replaced by the one of this extension (TLS registry
+                                 integration), its service file is removed so that the service file of this extension is the
                                  only one found by Keycloak -->
                             <key>org.keycloak:keycloak-admin-client-jackson3</key>
-                            <resources>org/keycloak/admin/client/jackson3/JacksonProvider3.class,org/keycloak/admin/client/jackson3/ResteasyClientClassicProvider3.class,org/keycloak/admin/client/jackson3/StreamMessageBodyReader3.class,META-INF/services/org.keycloak.admin.client.spi.ResteasyClientProvider</resources>
+                            <resources>org/keycloak/admin/client/jackson3/ResteasyClientClassicProvider3.class,META-INF/services/org.keycloak.admin.client.spi.ResteasyClientProvider</resources>
                         </artifact>
                     </removedResources>
                 </configuration>
