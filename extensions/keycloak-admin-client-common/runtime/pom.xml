@@ -22,12 +22,15 @@
             <artifactId>quarkus-arc</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- Jackson 2 is only needed to compile the JsonNode bridge used when the Jackson 2 Keycloak representations
+             (brought by quarkus-keycloak-authorization) are on the classpath, it must not be pulled into applications -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 
@@ -36,6 +39,14 @@
             <plugin>
                 <groupId>io.quarkus</groupId>
                 <artifactId>quarkus-extension-maven-plugin</artifactId>
+                <configuration>
+                    <lesserPriorityArtifacts>
+                        <!-- The Jackson 3 Keycloak representations must lose against the Jackson 2 ones
+                             (keycloak-client-common-synced, brought by quarkus-keycloak-authorization, Dev Services for Keycloak
+                             and the Keycloak test framework) when both are on the classpath, see KeycloakAdminClientProcessor -->
+                        <lesserPriorityArtifact>org.keycloak:keycloak-client-common-synced-jackson3</lesserPriorityArtifact>
+                    </lesserPriorityArtifacts>
+                </configuration>
             </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
