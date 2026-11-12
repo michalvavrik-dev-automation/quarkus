@@ -19,7 +19,7 @@ public final class KeycloakAdminClientJsonMapper {
      * <p>
      * TODO: use a public Keycloak API once it exposes the mapper directly.
      */
-    static final String KEYCLOAK_MAPPER_HOLDER = "org.keycloak.admin.client.jackson3.Jackson3MapperHolder";
+    public static final String KEYCLOAK_MAPPER_HOLDER = "org.keycloak.admin.client.jackson3.Jackson3MapperHolder";
     static final String KEYCLOAK_MAPPER_FIELD = "MAPPER";
 
     private KeycloakAdminClientJsonMapper() {
