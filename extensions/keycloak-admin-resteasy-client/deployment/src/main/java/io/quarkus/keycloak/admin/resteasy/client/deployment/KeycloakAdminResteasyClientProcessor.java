@@ -6,12 +6,9 @@ import org.jboss.jandex.DotName;
 import org.jboss.jandex.Type;
 import org.jboss.resteasy.client.jaxrs.internal.ResteasyClientBuilderImpl;
 import org.jboss.resteasy.client.jaxrs.internal.proxy.ProxyBuilderImpl;
-import org.keycloak.admin.client.JacksonProvider;
 import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.spi.ResteasyClientProvider;
 import org.keycloak.common.util.MultivaluedHashMap;
-import org.keycloak.json.StringListMapDeserializer;
-import org.keycloak.json.StringOrArrayDeserializer;
-import org.keycloak.json.StringOrArraySerializer;
 
 import io.quarkus.arc.deployment.SyntheticBeanBuildItem;
 import io.quarkus.core.Phase;
@@ -25,10 +22,13 @@ import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.ServiceStartBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveHierarchyIgnoreWarningBuildItem;
+import io.quarkus.deployment.builditem.nativeimage.ServiceProviderBuildItem;
 import io.quarkus.keycloak.admin.client.common.deployment.KeycloakAdminClientInjectionEnabled;
+import io.quarkus.keycloak.admin.client.common.deployment.KeycloakAdminClientJacksonBuildItem;
 import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientConfig;
 import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientConfigUtil;
 import io.quarkus.keycloak.admin.resteasy.client.runtime.KeycloakAdminClientCreator;
+import io.quarkus.keycloak.admin.resteasy.client.runtime.KeycloakAdminResteasyClientProvider;
 import io.quarkus.keycloak.admin.resteasy.client.runtime.KeycloakAdminResteasyClientRecorder;
 import io.quarkus.tls.TlsConfigurationRegistry;
 
@@ -50,31 +50,29 @@ public class KeycloakAdminResteasyClientProcessor {
 
     @BuildStep
     ReflectiveClassBuildItem reflect() {
-        return ReflectiveClassBuildItem.builder(ResteasyClientBuilderImpl.class, JacksonProvider.class, ProxyBuilderImpl.class,
-                StringListMapDeserializer.class,
-                StringOrArrayDeserializer.class,
-                StringOrArraySerializer.class)
+        return ReflectiveClassBuildItem.builder(ResteasyClientBuilderImpl.class, ProxyBuilderImpl.class)
                 .reason(getClass().getName())
                 .methods().build();
     }
 
     @BuildStep
-    void avoidRuntimeInitIssueInClientBuilderWrapper(ServiceRegistrar serviceRegistrar) {
-        serviceRegistrar
-                .forService("io.quarkus.keycloak-admin-resteasy-client.reset-client-provider")
-                .atPhase(Phase.STATIC_INIT)
-                .onStart(ctx -> KeycloakAdminResteasyClientRecorder.avoidRuntimeInitIssueInClientBuilderWrapper());
+    ServiceProviderBuildItem clientProvider() {
+        // the provider is loaded through the ServiceLoader when the Keycloak class is initialized
+        return new ServiceProviderBuildItem(ResteasyClientProvider.class.getName(),
+                KeycloakAdminResteasyClientProvider.class.getName());
     }
 
     @Produce(ServiceStartBuildItem.class)
     @BuildStep
-    public void integrate(ServiceRegistrar serviceRegistrar) {
+    public void integrate(ServiceRegistrar serviceRegistrar, KeycloakAdminClientJacksonBuildItem jackson) {
+        boolean bridgeJackson2JsonNode = jackson.bridgeJackson2JsonNode();
         serviceRegistrar
                 .forService("io.quarkus.keycloak-admin-resteasy-client.client-provider")
                 .atPhase(Phase.INIT)
                 .require(TlsConfigurationRegistry.class)
                 .require(KeycloakAdminClientConfig.class)
-                .onStart((ctx, registry, config) -> KeycloakAdminResteasyClientRecorder.setClientProvider(registry, config));
+                .onStart((ctx, registry, config) -> KeycloakAdminResteasyClientRecorder.setClientProvider(registry, config,
+                        bridgeJackson2JsonNode));
     }
 
     @BuildStep(onlyIf = KeycloakAdminClientInjectionEnabled.class)
