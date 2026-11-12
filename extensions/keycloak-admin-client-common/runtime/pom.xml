@@ -25,6 +25,10 @@
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-client-common-synced-jackson3</artifactId>
+        </dependency>
         <!-- Jackson 2 is only needed to compile the JsonNode bridge used when the Jackson 2 Keycloak representations
              (brought by quarkus-keycloak-authorization) are on the classpath, it must not be pulled into applications -->
         <dependency>
