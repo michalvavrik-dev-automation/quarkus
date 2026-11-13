@@ -4,7 +4,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Provides the Jackson 3 {@link JsonMapper} used by the Keycloak admin client extensions to (de)serialize
- * the Keycloak representations.
+ * the Keycloak representations. Which one is used is decided at build time, see {@code KeycloakAdminClientProcessor}.
  */
 public final class KeycloakAdminClientJsonMapper {
 
@@ -12,17 +12,18 @@ public final class KeycloakAdminClientJsonMapper {
     }
 
     /**
-     * @param bridgeJackson2JsonNode whether the Jackson 2 variant of the Keycloak representations is on the classpath,
-     *        in which case the Jackson 2 {@code JsonNode} fields of the representations must be bridged, see
-     *        {@link Jackson2JsonNodeModule}
-     * @return the mapper of the Keycloak admin client, the same instance is returned when no bridge is required
+     * @return the mapper of the Keycloak admin client
      */
-    public static JsonMapper create(boolean bridgeJackson2JsonNode) {
-        JsonMapper keycloakMapper = keycloakMapper();
-        if (!bridgeJackson2JsonNode) {
-            return keycloakMapper;
-        }
-        return keycloakMapper.rebuild().addModule(new Jackson2JsonNodeModule()).build();
+    public static JsonMapper keycloak() {
+        return keycloakMapper();
+    }
+
+    /**
+     * @return the mapper of the Keycloak admin client extended with the bridge for the Jackson 2 {@code JsonNode} fields
+     *         of the Jackson 2 variant of the Keycloak representations, see {@link Jackson2JsonNodeModule}
+     */
+    public static JsonMapper bridgingJackson2JsonNode() {
+        return keycloakMapper().rebuild().addModule(new Jackson2JsonNodeModule()).build();
     }
 
     /**

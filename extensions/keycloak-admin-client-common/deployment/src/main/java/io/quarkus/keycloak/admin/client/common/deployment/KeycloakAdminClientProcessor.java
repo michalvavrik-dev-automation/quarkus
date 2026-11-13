@@ -8,6 +8,8 @@ import java.util.TreeSet;
 import org.jboss.logging.Logger;
 
 import io.quarkus.bootstrap.model.ApplicationModel;
+import io.quarkus.core.Phase;
+import io.quarkus.core.deployment.service.ServiceRegistrar;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.builditem.BytecodeTransformerBuildItem;
@@ -37,6 +39,12 @@ public class KeycloakAdminClientProcessor {
      * Jackson 3 variant of the Keycloak representations, used by the Jackson 3 Keycloak admin client.
      */
     private static final String JACKSON3_REPRESENTATIONS_ARTIFACT_ID = "keycloak-client-common-synced-jackson3";
+
+    /**
+     * Name of the {@link JsonMapper} service the Keycloak admin client extensions (de)serialize the Keycloak representations
+     * with.
+     */
+    public static final String JSON_MAPPER_SERVICE = "io.quarkus.keycloak-admin-client.json-mapper";
 
     private static final String KEYCLOAK_JSON_MAPPER_SPI = "org.keycloak.json.KeycloakJsonMapper";
     private static final String KEYCLOAK_MAPPER_HOLDER = "org.keycloak.admin.client.jackson3.Jackson3MapperHolder";
@@ -99,6 +107,10 @@ public class KeycloakAdminClientProcessor {
     }
 
     /**
+     * Registers the {@link JsonMapper} service used by the Keycloak admin client extensions, see
+     * {@link #JSON_MAPPER_SERVICE}: the mapper of the Keycloak admin client, extended with the bridge for the Jackson 2
+     * {@code JsonNode} fields when the Jackson 2 variant of the Keycloak representations is on the runtime classpath.
+     * <p>
      * The Jackson 2 variant of the Keycloak representations (used by the Keycloak authorization client and
      * policy enforcer, Dev Services for Keycloak and the Keycloak test framework) and the Jackson 3 variant
      * (used by the Keycloak admin client) contain the same classes, but a few of them differ: the Jackson 2
@@ -115,13 +127,17 @@ public class KeycloakAdminClientProcessor {
      * removed from the Jackson 3 variant.
      */
     @BuildStep
-    KeycloakAdminClientJacksonBuildItem preferJackson2Representations(CurateOutcomeBuildItem curateOutcome,
+    void jsonMapper(ServiceRegistrar serviceRegistrar, CurateOutcomeBuildItem curateOutcome,
             BuildProducer<RemovedResourceBuildItem> removedResources) {
         ApplicationModel applicationModel = curateOutcome.getApplicationModel();
         ResolvedDependency jackson2Representations = findRuntimeDependency(applicationModel,
                 JACKSON2_REPRESENTATIONS_ARTIFACT_ID);
         if (jackson2Representations == null) {
-            return new KeycloakAdminClientJacksonBuildItem(false);
+            serviceRegistrar
+                    .forService(JsonMapper.class, JSON_MAPPER_SERVICE)
+                    .atPhase(Phase.INIT)
+                    .onStart(ctx -> KeycloakAdminClientJsonMapper.keycloak());
+            return;
         }
         ResolvedDependency jackson3Representations = findRuntimeDependency(applicationModel,
                 JACKSON3_REPRESENTATIONS_ARTIFACT_ID);
@@ -134,7 +150,10 @@ public class KeycloakAdminClientProcessor {
                 removedResources.produce(new RemovedResourceBuildItem(jackson3Representations.getKey(), duplicatedClasses));
             }
         }
-        return new KeycloakAdminClientJacksonBuildItem(true);
+        serviceRegistrar
+                .forService(JsonMapper.class, JSON_MAPPER_SERVICE)
+                .atPhase(Phase.INIT)
+                .onStart(ctx -> KeycloakAdminClientJsonMapper.bridgingJackson2JsonNode());
     }
 
     private static ResolvedDependency findRuntimeDependency(ApplicationModel applicationModel, String artifactId) {

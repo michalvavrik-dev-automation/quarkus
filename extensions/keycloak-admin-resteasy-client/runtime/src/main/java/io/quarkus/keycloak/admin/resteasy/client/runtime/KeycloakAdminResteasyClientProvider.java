@@ -19,8 +19,7 @@ public class KeycloakAdminResteasyClientProvider implements ResteasyClientProvid
 
     private final TlsConfiguration namedTlsConfig;
     private final boolean globalTrustAll;
-    private final boolean bridgeJackson2JsonNode;
-    private volatile JsonMapper bridgedJsonMapper;
+    private final JsonMapper jsonMapper;
 
     /**
      * Used by Keycloak to load this provider through the {@link java.util.ServiceLoader} when the {@link Keycloak}
@@ -28,7 +27,7 @@ public class KeycloakAdminResteasyClientProvider implements ResteasyClientProvid
      * see {@link KeycloakAdminResteasyClientRecorder#setClientProvider}.
      */
     public KeycloakAdminResteasyClientProvider() {
-        this(null, false, false);
+        this(null, false, null);
     }
 
     /**
@@ -36,13 +35,13 @@ public class KeycloakAdminResteasyClientProvider implements ResteasyClientProvid
      *        may be {@code null}
      * @param globalTrustAll whether the default TLS configuration trusts all certificates, only used when there is
      *        no named TLS configuration
-     * @param bridgeJackson2JsonNode see {@link KeycloakAdminClientJsonMapper#create(boolean)}
+     * @param jsonMapper the mapper selected at build time for the Keycloak representations
      */
     public KeycloakAdminResteasyClientProvider(TlsConfiguration namedTlsConfig, boolean globalTrustAll,
-            boolean bridgeJackson2JsonNode) {
+            JsonMapper jsonMapper) {
         this.namedTlsConfig = namedTlsConfig;
         this.globalTrustAll = globalTrustAll;
-        this.bridgeJackson2JsonNode = bridgeJackson2JsonNode;
+        this.jsonMapper = jsonMapper;
     }
 
     @Override
@@ -84,21 +83,7 @@ public class KeycloakAdminResteasyClientProvider implements ResteasyClientProvid
 
     private JacksonProvider3 jacksonProvider() {
         JacksonProvider3 provider = new JacksonProvider3();
-        if (bridgeJackson2JsonNode) {
-            // the Jackson 2 variant of the Keycloak representations is on the classpath,
-            // the mapper of the Keycloak admin client cannot handle its Jackson 2 JsonNode fields
-            provider.setMapper(bridgedJsonMapper());
-        }
+        provider.setMapper(jsonMapper != null ? jsonMapper : KeycloakAdminClientJsonMapper.keycloak());
         return provider;
-    }
-
-    private JsonMapper bridgedJsonMapper() {
-        JsonMapper mapper = bridgedJsonMapper;
-        if (mapper == null) {
-            // the mapper is immutable, a benign race only creates an equivalent instance
-            mapper = KeycloakAdminClientJsonMapper.create(true);
-            bridgedJsonMapper = mapper;
-        }
-        return mapper;
     }
 }
