@@ -200,8 +200,8 @@ The Keycloak Admin Client extensions use the Jackson 3 based `org.keycloak:keycl
 Its representations are identical to the ones of the Jackson 2 based `org.keycloak:keycloak-admin-client` library, except that the properties that used to be Jackson 2 `com.fasterxml.jackson.databind.JsonNode` instances, such as the client profiles and policies of `RealmRepresentation`, are `org.keycloak.json.RawJsonValue` instances.
 Please use the `RealmRepresentation#getParsedClientProfiles`, `RealmRepresentation#setParsedClientProfiles`, `RealmRepresentation#getParsedClientPolicies` and `RealmRepresentation#setParsedClientPolicies` methods to access them.
 
-The `quarkus-keycloak-authorization` extension, Dev Services for Keycloak and the `quarkus-test-keycloak-server` test framework use the Jackson 2 based `org.keycloak:keycloak-client-common-synced` representations.
-When those are on the classpath as well, Quarkus gives them precedence over the Jackson 3 based representations and the Keycloak Admin Client extensions bridge the Jackson 2 `JsonNode` properties, so the representations keep working with both libraries.
+The `quarkus-keycloak-authorization` extension uses the Jackson 2 based `org.keycloak:keycloak-client-common-synced` representations.
+When it is present as well, Quarkus gives those representations precedence over the Jackson 3 based ones and the Keycloak Admin Client extensions bridge their Jackson 2 `JsonNode` properties, so the representations keep working with both libraries.
 
 == Configuring TLS
 

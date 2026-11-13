@@ -83,7 +83,7 @@ public class KeycloakAdminResteasyClientProvider implements ResteasyClientProvid
 
     private JacksonProvider3 jacksonProvider() {
         JacksonProvider3 provider = new JacksonProvider3();
-        provider.setMapper(jsonMapper != null ? jsonMapper : KeycloakAdminClientJsonMapper.keycloak());
+        provider.setMapper(jsonMapper != null ? jsonMapper : KeycloakAdminClientJsonMapper.keycloak().mapper());
         return provider;
     }
 }

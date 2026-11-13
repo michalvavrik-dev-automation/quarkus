@@ -14,7 +14,7 @@ import org.keycloak.util.JsonSerialization;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
-import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientJsonMapper;
+import io.quarkus.keycloak.pep.runtime.KeycloakAdminClientJackson2Bridge;
 import io.quarkus.keycloak.admin.resteasy.client.runtime.KeycloakAdminResteasyClientProvider;
 import io.quarkus.test.QuarkusExtensionTest;
 import tools.jackson.databind.json.JsonMapper;
@@ -64,7 +64,7 @@ public class KeycloakRepresentationsCoexistenceTest {
         realm.setRealm("quarkus");
         realm.setParsedClientProfiles(new ClientProfilesRepresentation());
 
-        JsonMapper mapper = KeycloakAdminClientJsonMapper.bridgingJackson2JsonNode();
+        JsonMapper mapper = KeycloakAdminClientJackson2Bridge.jsonMapper().mapper();
         String json = mapper.writeValueAsString(realm);
         assertThat(json).contains("\"clientProfiles\":{\"profiles\":[]}");
         RealmRepresentation deserialized = mapper.readValue(json, RealmRepresentation.class);

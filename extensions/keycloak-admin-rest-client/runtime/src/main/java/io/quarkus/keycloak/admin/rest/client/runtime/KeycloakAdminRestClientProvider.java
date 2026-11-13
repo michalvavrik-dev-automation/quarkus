@@ -96,7 +96,7 @@ public class KeycloakAdminRestClientProvider implements ResteasyClientProvider {
     // the mapper selected at build time for the Keycloak representations; this ensures we don't customize
     // the managed (shared) ObjectMapper available in the CDI container
     private JsonMapper jsonMapper() {
-        return jsonMapper != null ? jsonMapper : KeycloakAdminClientJsonMapper.keycloak();
+        return jsonMapper != null ? jsonMapper : KeycloakAdminClientJsonMapper.keycloak().mapper();
     }
 
     @Override
