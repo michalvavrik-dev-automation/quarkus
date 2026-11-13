@@ -6,6 +6,7 @@ import org.keycloak.admin.client.KeycloakBuilder;
 import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientConfig;
 import io.quarkus.tls.TlsConfiguration;
 import io.quarkus.tls.TlsConfigurationRegistry;
+import tools.jackson.databind.json.JsonMapper;
 
 public class KeycloakAdminResteasyClientRecorder {
 
@@ -28,7 +29,7 @@ public class KeycloakAdminResteasyClientRecorder {
     }
 
     public static void setClientProvider(TlsConfigurationRegistry registry, KeycloakAdminClientConfig config,
-            boolean bridgeJackson2JsonNode) {
+            JsonMapper jsonMapper) {
         var namedTlsConfig = TlsConfiguration.from(registry, config.tlsConfigurationName()).orElse(null);
         final boolean globalTrustAll;
         if (registry.getDefault().isPresent()) {
@@ -36,7 +37,6 @@ public class KeycloakAdminResteasyClientRecorder {
         } else {
             globalTrustAll = false;
         }
-        Keycloak.setClientProvider(
-                new KeycloakAdminResteasyClientProvider(namedTlsConfig, globalTrustAll, bridgeJackson2JsonNode));
+        Keycloak.setClientProvider(new KeycloakAdminResteasyClientProvider(namedTlsConfig, globalTrustAll, jsonMapper));
     }
 }

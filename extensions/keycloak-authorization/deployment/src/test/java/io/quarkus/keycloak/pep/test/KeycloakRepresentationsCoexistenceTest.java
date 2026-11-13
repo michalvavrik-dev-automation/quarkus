@@ -64,7 +64,7 @@ public class KeycloakRepresentationsCoexistenceTest {
         realm.setRealm("quarkus");
         realm.setParsedClientProfiles(new ClientProfilesRepresentation());
 
-        JsonMapper mapper = KeycloakAdminClientJsonMapper.create(true);
+        JsonMapper mapper = KeycloakAdminClientJsonMapper.bridgingJackson2JsonNode();
         String json = mapper.writeValueAsString(realm);
         assertThat(json).contains("\"clientProfiles\":{\"profiles\":[]}");
         RealmRepresentation deserialized = mapper.readValue(json, RealmRepresentation.class);

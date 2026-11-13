@@ -37,8 +37,7 @@ public class KeycloakAdminRestClientProvider implements ResteasyClientProvider {
 
     private final boolean tlsTrustAll;
     private final TlsConfig tlsConfig;
-    private final boolean bridgeJackson2JsonNode;
-    private volatile JsonMapper jsonMapper;
+    private final JsonMapper jsonMapper;
 
     /**
      * Used by Keycloak to load this provider through the {@link java.util.ServiceLoader} when the {@link Keycloak}
@@ -46,19 +45,19 @@ public class KeycloakAdminRestClientProvider implements ResteasyClientProvider {
      * see {@link KeycloakAdminRestClientRecorder#setClientProvider}.
      */
     public KeycloakAdminRestClientProvider() {
-        this(false, false);
+        this(false, null);
     }
 
-    public KeycloakAdminRestClientProvider(boolean tlsTrustAll, boolean bridgeJackson2JsonNode) {
+    public KeycloakAdminRestClientProvider(boolean tlsTrustAll, JsonMapper jsonMapper) {
         this.tlsTrustAll = tlsTrustAll;
         this.tlsConfig = null;
-        this.bridgeJackson2JsonNode = bridgeJackson2JsonNode;
+        this.jsonMapper = jsonMapper;
     }
 
-    public KeycloakAdminRestClientProvider(TlsConfiguration tlsConfiguration, boolean bridgeJackson2JsonNode) {
+    public KeycloakAdminRestClientProvider(TlsConfiguration tlsConfiguration, JsonMapper jsonMapper) {
         this.tlsTrustAll = tlsConfiguration.isTrustAll();
         this.tlsConfig = createTlsConfig(tlsConfiguration);
-        this.bridgeJackson2JsonNode = bridgeJackson2JsonNode;
+        this.jsonMapper = jsonMapper;
     }
 
     @Override
@@ -94,16 +93,10 @@ public class KeycloakAdminRestClientProvider implements ResteasyClientProvider {
         return clientBuilder;
     }
 
-    // the mapper configured by the Keycloak admin client for its representations; this ensures we don't customize
+    // the mapper selected at build time for the Keycloak representations; this ensures we don't customize
     // the managed (shared) ObjectMapper available in the CDI container
     private JsonMapper jsonMapper() {
-        JsonMapper mapper = jsonMapper;
-        if (mapper == null) {
-            // the mapper is immutable, a benign race only creates an equivalent instance
-            mapper = KeycloakAdminClientJsonMapper.create(bridgeJackson2JsonNode);
-            jsonMapper = mapper;
-        }
-        return mapper;
+        return jsonMapper != null ? jsonMapper : KeycloakAdminClientJsonMapper.keycloak();
     }
 
     @Override

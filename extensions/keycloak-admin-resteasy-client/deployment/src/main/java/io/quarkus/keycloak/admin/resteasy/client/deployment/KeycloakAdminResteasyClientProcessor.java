@@ -25,13 +25,14 @@ import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveHierarchyIgnoreWarningBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ServiceProviderBuildItem;
 import io.quarkus.keycloak.admin.client.common.deployment.KeycloakAdminClientInjectionEnabled;
-import io.quarkus.keycloak.admin.client.common.deployment.KeycloakAdminClientJacksonBuildItem;
+import io.quarkus.keycloak.admin.client.common.deployment.KeycloakAdminClientProcessor;
 import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientConfig;
 import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientConfigUtil;
 import io.quarkus.keycloak.admin.resteasy.client.runtime.KeycloakAdminClientCreator;
 import io.quarkus.keycloak.admin.resteasy.client.runtime.KeycloakAdminResteasyClientProvider;
 import io.quarkus.keycloak.admin.resteasy.client.runtime.KeycloakAdminResteasyClientRecorder;
 import io.quarkus.tls.TlsConfigurationRegistry;
+import tools.jackson.databind.json.JsonMapper;
 
 public class KeycloakAdminResteasyClientProcessor {
 
@@ -70,15 +71,15 @@ public class KeycloakAdminResteasyClientProcessor {
 
     @Produce(ServiceStartBuildItem.class)
     @BuildStep
-    public void integrate(ServiceRegistrar serviceRegistrar, KeycloakAdminClientJacksonBuildItem jackson) {
-        boolean bridgeJackson2JsonNode = jackson.bridgeJackson2JsonNode();
+    public void integrate(ServiceRegistrar serviceRegistrar) {
         serviceRegistrar
                 .forService("io.quarkus.keycloak-admin-resteasy-client.client-provider")
                 .atPhase(Phase.INIT)
                 .require(TlsConfigurationRegistry.class)
                 .require(KeycloakAdminClientConfig.class)
-                .onStart((ctx, registry, config) -> KeycloakAdminResteasyClientRecorder.setClientProvider(registry, config,
-                        bridgeJackson2JsonNode));
+                .require(JsonMapper.class, KeycloakAdminClientProcessor.JSON_MAPPER_SERVICE)
+                .onStart((ctx, registry, config, jsonMapper) -> KeycloakAdminResteasyClientRecorder
+                        .setClientProvider(registry, config, jsonMapper));
     }
 
     @BuildStep(onlyIf = KeycloakAdminClientInjectionEnabled.class)
