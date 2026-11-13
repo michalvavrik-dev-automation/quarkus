@@ -29,7 +29,8 @@ public final class KeycloakAdminClientJsonMapper {
 
     /**
      * Returns {@code org.keycloak.admin.client.jackson3.Jackson3MapperHolder#MAPPER}, the mapper of the Keycloak admin client.
-     * The holder is package-private, so the body of this method is generated at build time by {@code KeycloakAdminClientProcessor}.
+     * The holder is package-private, so the body of this method is generated at build time by
+     * {@code KeycloakAdminClientProcessor}.
      * TODO: make the holder public in Keycloak, then call it directly and drop the generation
      */
     static native JsonMapper keycloakMapper();

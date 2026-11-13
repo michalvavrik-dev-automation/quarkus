@@ -14,8 +14,8 @@ import org.keycloak.util.JsonSerialization;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
-import io.quarkus.keycloak.pep.runtime.KeycloakAdminClientJackson2Bridge;
 import io.quarkus.keycloak.admin.resteasy.client.runtime.KeycloakAdminResteasyClientProvider;
+import io.quarkus.keycloak.pep.runtime.KeycloakAdminClientJackson2Bridge;
 import io.quarkus.test.QuarkusExtensionTest;
 import tools.jackson.databind.json.JsonMapper;
 

@@ -22,8 +22,8 @@ import io.quarkus.deployment.builditem.nativeimage.ReflectiveHierarchyIgnoreWarn
 import io.quarkus.deployment.builditem.nativeimage.ServiceProviderBuildItem;
 import io.quarkus.keycloak.admin.client.common.deployment.KeycloakAdminClientInjectionEnabled;
 import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientConfig;
-import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientJsonMapper;
 import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientConfigUtil;
+import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientJsonMapper;
 import io.quarkus.keycloak.admin.rest.client.runtime.KeycloakAdminClientCreator;
 import io.quarkus.keycloak.admin.rest.client.runtime.KeycloakAdminRestClientProvider;
 import io.quarkus.keycloak.admin.rest.client.runtime.KeycloakAdminRestClientRecorder;

@@ -25,7 +25,11 @@ public class KeycloakRealmClientCredentialsJwtPrivateKeyManager implements Quark
     public Map<String, String> start() {
         RealmRepresentation realm = createRealm(KEYCLOAK_REALM);
 
-        realm.getClients().add(createClient("quarkus-app"));
+        try {
+            realm.getClients().add(createClient("quarkus-app"));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
         new KeycloakTestClient(KEYCLOAK_SERVER_URL + "/realms/master").createRealm(realm);
         return Collections.emptyMap();
