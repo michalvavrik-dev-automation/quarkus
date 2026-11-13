@@ -1,5 +1,6 @@
 package io.quarkus.keycloak.admin.client.common.deployment;
 
+import java.lang.reflect.Modifier;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
@@ -9,18 +10,19 @@ import org.jboss.logging.Logger;
 import io.quarkus.bootstrap.model.ApplicationModel;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
+import io.quarkus.deployment.builditem.BytecodeTransformerBuildItem;
 import io.quarkus.deployment.builditem.RemovedResourceBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.RuntimeInitializedClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ServiceProviderBuildItem;
 import io.quarkus.deployment.pkg.builditem.CurateOutcomeBuildItem;
-import io.quarkus.keycloak.admin.client.common.runtime.jackson.MultivaluedHashMapValueDeserializer3;
-import io.quarkus.keycloak.admin.client.common.runtime.jackson.MultivaluedHashMapValueSerializer3;
-import io.quarkus.keycloak.admin.client.common.runtime.jackson.ResourceTypeMapDeserializer3;
-import io.quarkus.keycloak.admin.client.common.runtime.jackson.StringListMapDeserializer3;
-import io.quarkus.keycloak.admin.client.common.runtime.jackson.StringOrArrayDeserializer3;
-import io.quarkus.keycloak.admin.client.common.runtime.jackson.StringOrArraySerializer3;
+import io.quarkus.gizmo.ClassTransformer;
+import io.quarkus.gizmo.FieldDescriptor;
+import io.quarkus.gizmo.MethodCreator;
+import io.quarkus.gizmo.MethodDescriptor;
+import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientJsonMapper;
 import io.quarkus.maven.dependency.ResolvedDependency;
+import tools.jackson.databind.json.JsonMapper;
 
 public class KeycloakAdminClientProcessor {
 
@@ -37,6 +39,8 @@ public class KeycloakAdminClientProcessor {
     private static final String JACKSON3_REPRESENTATIONS_ARTIFACT_ID = "keycloak-client-common-synced-jackson3";
 
     private static final String KEYCLOAK_JSON_MAPPER_SPI = "org.keycloak.json.KeycloakJsonMapper";
+    private static final String KEYCLOAK_MAPPER_HOLDER = "org.keycloak.admin.client.jackson3.Jackson3MapperHolder";
+    private static final String KEYCLOAK_MAPPER_FIELD = "MAPPER";
     private static final String KEYCLOAK_RAW_JSON_VALUE_SUPPORT_SPI = "org.keycloak.json.RawJsonValueSupport";
 
     @BuildStep
@@ -49,24 +53,49 @@ public class KeycloakAdminClientProcessor {
         serviceProviders.produce(ServiceProviderBuildItem.allProvidersFromClassPath(KEYCLOAK_JSON_MAPPER_SPI));
         serviceProviders.produce(ServiceProviderBuildItem.allProvidersFromClassPath(KEYCLOAK_RAW_JSON_VALUE_SUPPORT_SPI));
 
-        // Jackson 3 (de)serializers instantiated reflectively through the Keycloak annotation introspector,
-        // by the mapper of the Keycloak admin client (used by the representations through the KeycloakJsonMapper SPI)
-        // and by the copy of it used by the Quarkus extensions, see KeycloakAdminClientJsonMapper
+        // Jackson 3 (de)serializers instantiated reflectively through the annotation introspector
+        // of the Keycloak admin client mapper, see org.keycloak.admin.client.jackson3.KeycloakAnnotationIntrospector3
         reflectiveClasses.produce(ReflectiveClassBuildItem.builder(
                 "org.keycloak.admin.client.jackson3.StringOrArrayDeserializer3",
                 "org.keycloak.admin.client.jackson3.StringOrArraySerializer3",
                 "org.keycloak.admin.client.jackson3.StringListMapDeserializer3",
                 "org.keycloak.admin.client.jackson3.MultivaluedHashMapValueDeserializer3",
                 "org.keycloak.admin.client.jackson3.MultivaluedHashMapValueSerializer3",
-                "org.keycloak.admin.client.jackson3.ResourceTypeMapDeserializer3",
-                StringOrArrayDeserializer3.class.getName(),
-                StringOrArraySerializer3.class.getName(),
-                StringListMapDeserializer3.class.getName(),
-                MultivaluedHashMapValueDeserializer3.class.getName(),
-                MultivaluedHashMapValueSerializer3.class.getName(),
-                ResourceTypeMapDeserializer3.class.getName())
+                "org.keycloak.admin.client.jackson3.ResourceTypeMapDeserializer3")
                 .reason(getClass().getName())
                 .constructors().build());
+    }
+
+    /**
+     * Implements {@link KeycloakAdminClientJsonMapper#keycloakMapper()}: the mapper of the Keycloak admin client is held
+     * by the package-private {@code Jackson3MapperHolder}, so the holder and its field are made public and the native
+     * method is replaced with one returning the field.
+     * <p>
+     * TODO: drop once the holder is public in Keycloak
+     */
+    @BuildStep
+    void keycloakJsonMapperAccess(BuildProducer<BytecodeTransformerBuildItem> transformers) {
+        FieldDescriptor mapperField = FieldDescriptor.of(KEYCLOAK_MAPPER_HOLDER, KEYCLOAK_MAPPER_FIELD, JsonMapper.class);
+        transformers.produce(new BytecodeTransformerBuildItem(KEYCLOAK_MAPPER_HOLDER, (className, classVisitor) -> {
+            ClassTransformer transformer = new ClassTransformer(className);
+            transformer.addModifiers(Modifier.PUBLIC);
+            transformer.modifyField(mapperField).addModifiers(Modifier.PUBLIC);
+            return transformer.applyTo(classVisitor);
+        }));
+        transformers.produce(new BytecodeTransformerBuildItem(KeycloakAdminClientJsonMapper.class.getName(),
+                (className, classVisitor) -> {
+                    ClassTransformer transformer = new ClassTransformer(className);
+                    MethodDescriptor keycloakMapper = MethodDescriptor.ofMethod(KeycloakAdminClientJsonMapper.class,
+                            "keycloakMapper", JsonMapper.class);
+                    // the native method is removed first as methods are created in 'visitEnd'
+                    // while the method is removed by simply being ignored in 'visitMethod'
+                    transformer.removeMethod(keycloakMapper);
+                    try (MethodCreator method = transformer.addMethod(keycloakMapper)) {
+                        method.setModifiers(Modifier.STATIC);
+                        method.returnValue(method.readStaticField(mapperField));
+                    }
+                    return transformer.applyTo(classVisitor);
+                }));
     }
 
     /**
