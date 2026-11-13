@@ -33,6 +33,6 @@ public class AdminClientTestCase {
         when().put("/admin-client/empty-realm-client-profiles")
                 .then()
                 .statusCode(200)
-                .body(equalTo("quarkus:0"));
+                .body(equalTo("quarkus:0:true"));
     }
 }
