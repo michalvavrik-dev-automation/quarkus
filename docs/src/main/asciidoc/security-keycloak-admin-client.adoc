@@ -194,6 +194,15 @@ quarkus.keycloak.admin-client.grant-type=CLIENT_CREDENTIALS <1>
 
 NOTE: Note that the xref:security-openid-connect-client.adoc[OidcClient] can also be used to acquire tokens.
 
+== Jackson
+
+The Keycloak Admin Client extensions use the Jackson 3 based `org.keycloak:keycloak-admin-client-jackson3` client library.
+Its representations are identical to the ones of the Jackson 2 based `org.keycloak:keycloak-admin-client` library, except that the properties that used to be Jackson 2 `com.fasterxml.jackson.databind.JsonNode` instances, such as the client profiles and policies of `RealmRepresentation`, are `org.keycloak.json.RawJsonValue` instances.
+Please use the `RealmRepresentation#getParsedClientProfiles`, `RealmRepresentation#setParsedClientProfiles`, `RealmRepresentation#getParsedClientPolicies` and `RealmRepresentation#setParsedClientPolicies` methods to access them.
+
+The `quarkus-keycloak-authorization` extension, Dev Services for Keycloak and the `quarkus-test-keycloak-server` test framework use the Jackson 2 based `org.keycloak:keycloak-client-common-synced` representations.
+When those are on the classpath as well, Quarkus gives them precedence over the Jackson 3 based representations and the Keycloak Admin Client extensions bridge the Jackson 2 `JsonNode` properties, so the representations keep working with both libraries.
+
 == Configuring TLS
 
 To configure a TLS connection for the Keycloak Admin Client, use the TLS Registry extension and point the Keycloak Admin Client to respective TLS configuration.
