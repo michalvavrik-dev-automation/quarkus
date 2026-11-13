@@ -2,19 +2,16 @@ package io.quarkus.keycloak.admin.resteasy.client.runtime;
 
 import javax.net.ssl.SSLContext;
 
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.WebTarget;
-import jakarta.ws.rs.core.MediaType;
 
 import org.jboss.resteasy.client.jaxrs.ResteasyWebTarget;
 import org.jboss.resteasy.client.jaxrs.internal.ResteasyClientBuilderImpl;
 import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.jackson3.JacksonProvider3;
 import org.keycloak.admin.client.spi.ResteasyClientProvider;
 
 import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientJsonMapper;
-import io.quarkus.resteasy.common.runtime.jackson.QuarkusJacksonSerializer;
 import io.quarkus.tls.TlsConfiguration;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -23,7 +20,7 @@ public class KeycloakAdminResteasyClientProvider implements ResteasyClientProvid
     private final TlsConfiguration namedTlsConfig;
     private final boolean globalTrustAll;
     private final boolean bridgeJackson2JsonNode;
-    private volatile JsonMapper jsonMapper;
+    private volatile JsonMapper bridgedJsonMapper;
 
     /**
      * Used by Keycloak to load this provider through the {@link java.util.ServiceLoader} when the {@link Keycloak}
@@ -50,7 +47,8 @@ public class KeycloakAdminResteasyClientProvider implements ResteasyClientProvid
 
     @Override
     public Client newRestEasyClient(Object customJacksonProvider, SSLContext sslContext, boolean disableTrustManager) {
-        // this is what 'org.keycloak.admin.client.jackson3.ResteasyClientClassicProvider3' does
+        // this is what 'org.keycloak.admin.client.jackson3.ResteasyClientClassicProvider3' does,
+        // except for the TLS configuration coming from the TLS registry
         var builder = new ResteasyClientBuilderImpl();
         builder.connectionPoolSize(10);
 
@@ -70,9 +68,11 @@ public class KeycloakAdminResteasyClientProvider implements ResteasyClientProvid
             }
         }
 
-        // this ensures we don't customize managed (shared) ObjectMapper available in the CDI container
-        // and that we use QuarkusJacksonSerializer that works in native mode
-        builder.register(new AppJsonQuarkusJacksonSerializer(jsonMapper()), 100);
+        // the Jackson provider of the Keycloak admin client with its own mapper, registered with the Keycloak priority
+        // so that it is used instead of the JSON providers of the Quarkus RESTEasy client; this ensures we don't
+        // customize the managed (shared) ObjectMapper available in the CDI container
+        Object provider = customJacksonProvider != null ? customJacksonProvider : jacksonProvider();
+        builder.register(provider, 100);
 
         return builder.build();
     }
@@ -82,32 +82,23 @@ public class KeycloakAdminResteasyClientProvider implements ResteasyClientProvid
         return (ResteasyWebTarget.class.cast(webTarget)).proxy(aClass);
     }
 
-    // the mapper configured by the Keycloak admin client for its representations
-    private JsonMapper jsonMapper() {
-        JsonMapper mapper = jsonMapper;
-        if (mapper == null) {
-            // the mapper is immutable, a benign race only creates an equivalent instance
-            mapper = KeycloakAdminClientJsonMapper.create(bridgeJackson2JsonNode);
-            jsonMapper = mapper;
+    private JacksonProvider3 jacksonProvider() {
+        JacksonProvider3 provider = new JacksonProvider3();
+        if (bridgeJackson2JsonNode) {
+            // the Jackson 2 variant of the Keycloak representations is on the classpath,
+            // the mapper of the Keycloak admin client cannot handle its Jackson 2 JsonNode fields
+            provider.setMapper(bridgedJsonMapper());
         }
-        return mapper;
+        return provider;
     }
 
-    // makes media type more specific which ensures that it will be used first
-    @Produces(MediaType.APPLICATION_JSON)
-    @Consumes(MediaType.APPLICATION_JSON)
-    static final class AppJsonQuarkusJacksonSerializer extends QuarkusJacksonSerializer {
-
-        private final JsonMapper jsonMapper;
-
-        private AppJsonQuarkusJacksonSerializer(JsonMapper jsonMapper) {
-            this.jsonMapper = jsonMapper;
+    private JsonMapper bridgedJsonMapper() {
+        JsonMapper mapper = bridgedJsonMapper;
+        if (mapper == null) {
+            // the mapper is immutable, a benign race only creates an equivalent instance
+            mapper = KeycloakAdminClientJsonMapper.create(true);
+            bridgedJsonMapper = mapper;
         }
-
-        @Override
-        public JsonMapper locateMapper(Class<?> type, MediaType mediaType) {
-            return jsonMapper;
-        }
-
+        return mapper;
     }
 }
