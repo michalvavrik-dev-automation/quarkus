@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import org.jboss.logging.Logger;
 
@@ -26,8 +25,6 @@ import io.quarkus.oidc.common.runtime.OidcCommonUtils;
 import io.quarkus.oidc.common.runtime.OidcTlsSupport;
 import io.quarkus.oidc.common.runtime.OidcWebClient;
 import io.quarkus.proxy.ProxyConfigurationRegistry;
-import io.quarkus.runtime.RuntimeValue;
-import io.quarkus.runtime.annotations.Recorder;
 import io.quarkus.runtime.configuration.ConfigurationException;
 import io.quarkus.tls.TlsConfigurationRegistry;
 import io.smallrye.mutiny.Multi;
@@ -39,8 +36,7 @@ public class OidcClientRegistrationRecorder {
     private static final String DEFAULT_ID = "Default";
 
     public static OidcClientRegistrations setup(Vertx vertx, TlsConfigurationRegistry tlsConfigurationRegistry,
-                                                ProxyConfigurationRegistry proxyConfigurationRegistry,
-                                                OidcClientRegistrationsConfig runtimeConfig) {
+            ProxyConfigurationRegistry proxyConfigurationRegistry, OidcClientRegistrationsConfig runtimeConfig) {
         var tlsSupport = OidcTlsSupport.of(tlsConfigurationRegistry);
         OidcClientRegistration defaultClientReg = createOidcClientRegistration(
                 getDefaultClientRegistration(runtimeConfig),
@@ -64,16 +60,6 @@ public class OidcClientRegistrationRecorder {
     private static boolean isEmptyMetadata(Metadata m) {
         return m.clientName().isEmpty() && m.redirectUri().isEmpty()
                 && m.postLogoutUri().isEmpty() && m.extraProps().isEmpty();
-    }
-
-    public Supplier<OidcClientRegistration> createOidcClientRegistrationBean(OidcClientRegistrations oidcClientRegs) {
-        return new Supplier<OidcClientRegistration>() {
-
-            @Override
-            public OidcClientRegistration get() {
-                return oidcClientRegs.getClientRegistration();
-            }
-        };
     }
 
     public static OidcClientRegistration createOidcClientRegistration(OidcClientRegistrationConfig oidcConfig,

@@ -45,9 +45,14 @@ final class OidcClientRegistrationsImpl implements OidcClientRegistrations, Clos
 
     @Override
     public void close() throws IOException {
-        defaultClientReg.close();
+        // a client registration is null when its configuration is not available
+        if (defaultClientReg != null) {
+            defaultClientReg.close();
+        }
         for (OidcClientRegistration clientReg : staticOidcClientRegs.values()) {
-            clientReg.close();
+            if (clientReg != null) {
+                clientReg.close();
+            }
         }
     }
 }
