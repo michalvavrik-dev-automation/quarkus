@@ -1,10 +1,11 @@
 package io.quarkus.oidc.client.registration.deployment;
 
 import java.io.IOException;
-import java.util.Optional;
 import java.util.function.BooleanSupplier;
 
 import jakarta.inject.Singleton;
+
+import org.jboss.jandex.ClassType;
 
 import io.quarkus.arc.deployment.SyntheticBeanBuildItem;
 import io.quarkus.core.Phase;
@@ -16,6 +17,7 @@ import io.quarkus.deployment.annotations.BuildSteps;
 import io.quarkus.deployment.builditem.ExtensionSslNativeSupportBuildItem;
 import io.quarkus.oidc.client.registration.OidcClientRegistration;
 import io.quarkus.oidc.client.registration.OidcClientRegistrations;
+import io.quarkus.oidc.client.registration.runtime.DefaultOidcClientRegistrationCreator;
 import io.quarkus.oidc.client.registration.runtime.OidcClientRegistrationRecorder;
 import io.quarkus.oidc.client.registration.runtime.OidcClientRegistrationsConfig;
 import io.quarkus.proxy.ProxyConfigurationRegistry;
@@ -52,24 +54,19 @@ public class OidcClientRegistrationBuildStep {
                     return oidcClientRegistrations;
                 });
 
-        serviceRegistrar
-                .forService(OidcClientRegistration.class)
-                .atPhase(Phase.DATA)
-                .require(OidcClientRegistrations.class)
-                .optional()
-                .onStart((ctx, oidcClientRegistrations) -> Optional
-                        .ofNullable(oidcClientRegistrations.getClientRegistration()));
-
-        syntheticBean.produce(SyntheticBeanBuildItem.configure(OidcClientRegistration.class).unremovable()
-                .types(OidcClientRegistration.class)
-                .serviceValue(OidcClientRegistration.class)
+        syntheticBean.produce(SyntheticBeanBuildItem.configure(OidcClientRegistrations.class).unremovable()
+                .types(OidcClientRegistrations.class)
+                .serviceValue(OidcClientRegistrations.class)
                 .scope(Singleton.class)
                 .setRuntimeInit()
                 .done());
 
-        syntheticBean.produce(SyntheticBeanBuildItem.configure(OidcClientRegistrations.class).unremovable()
-                .types(OidcClientRegistrations.class)
-                .serviceValue(OidcClientRegistrations.class)
+        // The default client registration is null when it is not configured, and a service cannot produce
+        // a bean with a null instance, therefore the bean reads it from the OidcClientRegistrations bean
+        syntheticBean.produce(SyntheticBeanBuildItem.configure(OidcClientRegistration.class).unremovable()
+                .types(OidcClientRegistration.class)
+                .creator(DefaultOidcClientRegistrationCreator.class)
+                .addInjectionPoint(ClassType.create(OidcClientRegistrations.class))
                 .scope(Singleton.class)
                 .setRuntimeInit()
                 .done());
