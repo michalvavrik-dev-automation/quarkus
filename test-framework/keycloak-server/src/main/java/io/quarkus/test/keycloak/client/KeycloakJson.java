@@ -13,8 +13,10 @@ import tools.jackson.databind.json.JsonMapper;
  * (De)serializes the Keycloak representations with the Jackson 3 mapper of the Keycloak admin client, or with Keycloak's
  * Jackson 2 {@code JsonSerialization} when the Jackson 2 variant of the representations is on the classpath (it is
  * brought by the Keycloak authorization extension and then wins over the Jackson 3 variant).
+ * <p>
+ * Use it in tests instead of Keycloak's {@code JsonSerialization}, which this test framework no longer brings.
  */
-final class KeycloakJson {
+public final class KeycloakJson {
 
     private static final boolean JACKSON2_REPRESENTATIONS = isPresent("org.keycloak.util.JsonSerialization");
     private static volatile JsonMapper jackson3Mapper;
@@ -22,14 +24,14 @@ final class KeycloakJson {
     private KeycloakJson() {
     }
 
-    static RealmRepresentation readRealm(InputStream is) throws IOException {
+    public static RealmRepresentation readRealm(InputStream is) throws IOException {
         if (JACKSON2_REPRESENTATIONS) {
             return JsonSerialization.readValue(is, RealmRepresentation.class);
         }
         return jackson3Mapper().readValue(is, RealmRepresentation.class);
     }
 
-    static String writeRealm(RealmRepresentation realm) throws IOException {
+    public static String writeRealm(RealmRepresentation realm) throws IOException {
         if (JACKSON2_REPRESENTATIONS) {
             return JsonSerialization.writeValueAsString(realm);
         }

@@ -203,6 +203,9 @@ Please use the `RealmRepresentation#getParsedClientProfiles`, `RealmRepresentati
 The `quarkus-keycloak-authorization` extension uses the Jackson 2 based `org.keycloak:keycloak-client-common-synced` representations.
 When it is present as well, Quarkus gives those representations precedence over the Jackson 3 based ones and the Keycloak Admin Client extensions bridge their Jackson 2 `JsonNode` properties, so the representations keep working with both libraries.
 
+Dev Services for Keycloak and the `quarkus-test-keycloak-server` test framework use the Jackson 3 based representations too.
+Use `io.quarkus.test.keycloak.client.KeycloakJson` to read or write a `RealmRepresentation` in your tests instead of Keycloak's Jackson 2 `JsonSerialization`, which is no longer available by default.
+
 == Configuring TLS
 
 To configure a TLS connection for the Keycloak Admin Client, use the TLS Registry extension and point the Keycloak Admin Client to respective TLS configuration.
