@@ -61,8 +61,8 @@ public class OidcClientRegistrationBuildStep {
                 .setRuntimeInit()
                 .done());
 
-        // The default client registration is null when it is not configured, and a service cannot produce
-        // a bean with a null instance, therefore the bean reads it from the OidcClientRegistrations bean
+        // The default client registration is null when it is not configured. A serviceValue() bean cannot
+        // have a null instance, therefore this bean reads it from the OidcClientRegistrations bean instead.
         syntheticBean.produce(SyntheticBeanBuildItem.configure(OidcClientRegistration.class).unremovable()
                 .types(OidcClientRegistration.class)
                 .creator(DefaultOidcClientRegistrationCreator.class)
