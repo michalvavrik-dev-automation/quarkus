@@ -21,14 +21,13 @@ import io.quarkus.deployment.builditem.ServiceStartBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveHierarchyIgnoreWarningBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ServiceProviderBuildItem;
 import io.quarkus.keycloak.admin.client.common.deployment.KeycloakAdminClientInjectionEnabled;
-import io.quarkus.keycloak.admin.client.common.deployment.KeycloakAdminClientProcessor;
 import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientConfig;
 import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientConfigUtil;
+import io.quarkus.keycloak.admin.client.common.runtime.KeycloakAdminClientJsonMapper;
 import io.quarkus.keycloak.admin.rest.client.runtime.KeycloakAdminClientCreator;
 import io.quarkus.keycloak.admin.rest.client.runtime.KeycloakAdminRestClientProvider;
 import io.quarkus.keycloak.admin.rest.client.runtime.KeycloakAdminRestClientRecorder;
 import io.quarkus.tls.TlsConfigurationRegistry;
-import tools.jackson.databind.json.JsonMapper;
 
 public class KeycloakAdminRestClientProcessor {
 
@@ -63,9 +62,9 @@ public class KeycloakAdminRestClientProcessor {
                 .atPhase(Phase.INIT)
                 .require(TlsConfigurationRegistry.class)
                 .require(KeycloakAdminClientConfig.class)
-                .require(JsonMapper.class, KeycloakAdminClientProcessor.JSON_MAPPER_SERVICE)
+                .require(KeycloakAdminClientJsonMapper.class)
                 .onStart((ctx, registry, config, jsonMapper) -> KeycloakAdminRestClientRecorder.setClientProvider(registry,
-                        config, jsonMapper));
+                        config, jsonMapper.mapper()));
     }
 
     @BuildStep(onlyIf = KeycloakAdminClientInjectionEnabled.class)

@@ -3,27 +3,28 @@ package io.quarkus.keycloak.admin.client.common.runtime;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Provides the Jackson 3 {@link JsonMapper} used by the Keycloak admin client extensions to (de)serialize
- * the Keycloak representations. Which one is used is decided at build time, see {@code KeycloakAdminClientProcessor}.
+ * The Jackson 3 {@link JsonMapper} used by the Keycloak admin client extensions to (de)serialize the Keycloak
+ * representations, registered as a service at build time: the mapper of the Keycloak admin client by
+ * {@code KeycloakAdminClientProcessor}, or a mapper handling the Jackson 2 variant of the representations by the
+ * Keycloak authorization extension, which is the one bringing that variant.
  */
 public final class KeycloakAdminClientJsonMapper {
 
-    private KeycloakAdminClientJsonMapper() {
+    private final JsonMapper mapper;
+
+    public KeycloakAdminClientJsonMapper(JsonMapper mapper) {
+        this.mapper = mapper;
+    }
+
+    public JsonMapper mapper() {
+        return mapper;
     }
 
     /**
      * @return the mapper of the Keycloak admin client
      */
-    public static JsonMapper keycloak() {
-        return keycloakMapper();
-    }
-
-    /**
-     * @return the mapper of the Keycloak admin client extended with the bridge for the Jackson 2 {@code JsonNode} fields
-     *         of the Jackson 2 variant of the Keycloak representations, see {@link Jackson2JsonNodeModule}
-     */
-    public static JsonMapper bridgingJackson2JsonNode() {
-        return keycloakMapper().rebuild().addModule(new Jackson2JsonNodeModule()).build();
+    public static KeycloakAdminClientJsonMapper keycloak() {
+        return new KeycloakAdminClientJsonMapper(keycloakMapper());
     }
 
     /**

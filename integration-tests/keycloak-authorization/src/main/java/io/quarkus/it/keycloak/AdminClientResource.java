@@ -81,7 +81,10 @@ public class AdminClientResource {
         keycloak.realm("quarkus").update(realm);
         ClientProfilesRepresentation profiles = realm.getParsedClientProfiles();
         int profilesCount = profiles == null ? -1 : profiles.getProfiles().size();
-        return realm.getRealm() + ":" + profilesCount;
+        // sub-resource interface without a class-level @Path, proxied by the admin client
+        boolean hasGlobalProfiles = !keycloak.realm("quarkus").clientPoliciesProfilesResource().getProfiles(true)
+                .getGlobalProfiles().isEmpty();
+        return realm.getRealm() + ":" + profilesCount + ":" + hasGlobalProfiles;
     }
 
     private static RealmRepresentation createRealm(String name) {
