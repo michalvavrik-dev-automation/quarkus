@@ -19,7 +19,7 @@ import io.quarkus.test.oidc.server.OidcWiremockTestResource;
 import io.restassured.RestAssured;
 import io.smallrye.graphql.client.typesafe.api.GraphQLClientApi;
 
-@QuarkusTestResource(value = OidcWiremockTestResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(OidcWiremockTestResource.class)
 class AccessTokenPropagationFailureTest {
 
     static final OidcTestClient client = new OidcTestClient();

@@ -18,7 +18,7 @@ public class AccessTokenPropagationDevModeTest {
                     .addClasses(PublicGraphQLApi.class, DevModeTypesafeGraphQLClient.class, DevModeFrontendResource.class)
                     .addAsResource(
                             new StringAsset(
-                                    "quarkus.smallrye-graphql-client.dev-mode-client.url=http://localhost:8080/graphql\n"),
+                                    "quarkus.smallrye-graphql-client.dev-mode-client.url=http://localhost:${quarkus.http.port:8080}/graphql\n"),
                             "application.properties"));
 
     @Test

@@ -12,7 +12,7 @@ import io.quarkus.test.oidc.client.OidcTestClient;
 import io.quarkus.test.oidc.server.OidcWiremockTestResource;
 import io.restassured.RestAssured;
 
-@QuarkusTestResource(value = OidcWiremockTestResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(OidcWiremockTestResource.class)
 public class AccessTokenPropagationDisabledTest {
 
     static final OidcTestClient client = new OidcTestClient();

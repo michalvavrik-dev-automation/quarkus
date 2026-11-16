@@ -18,7 +18,7 @@ import io.quarkus.test.oidc.server.OidcWiremockTestResource;
 import io.restassured.RestAssured;
 import io.smallrye.mutiny.Uni;
 
-@QuarkusTestResource(value = OidcWiremockTestResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(OidcWiremockTestResource.class)
 public class AccessTokenExchangeTest {
 
     final static OidcTestClient client = new OidcTestClient();
