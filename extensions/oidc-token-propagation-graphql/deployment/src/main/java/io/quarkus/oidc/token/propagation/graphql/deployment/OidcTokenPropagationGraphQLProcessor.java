@@ -42,7 +42,7 @@ class OidcTokenPropagationGraphQLProcessor {
 
     @BuildStep
     FeatureBuildItem feature() {
-        return new FeatureBuildItem(Feature.SMALLRYE_GRAPHQL_CLIENT_OIDC_TOKEN_PROPAGATION);
+        return new FeatureBuildItem(Feature.OIDC_TOKEN_PROPAGATION_GRAPHQL);
     }
 
     @BuildStep(onlyIf = IsEnabled.class)

@@ -21,7 +21,7 @@ public class AccessTokenPropagationDisabledTest {
     static final QuarkusExtensionTest test = new QuarkusExtensionTest()
             .withApplicationRoot((jar) -> jar
                     .addClasses(PublicGraphQLApi.class, PropagationTypesafeGraphQLClient.class, FrontendResource.class))
-            .overrideConfigKey("quarkus.smallrye-graphql-client-oidc-token-propagation.enabled", "false")
+            .overrideConfigKey("quarkus.oidc-token-propagation-graphql.enabled", "false")
             .withConfiguration(
                     """
                             quarkus.oidc.auth-server-url=${keycloak.url:replaced-by-test}/realms/quarkus
