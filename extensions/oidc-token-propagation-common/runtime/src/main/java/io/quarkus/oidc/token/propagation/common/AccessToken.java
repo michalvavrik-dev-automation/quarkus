@@ -29,7 +29,8 @@ public @interface AccessToken {
      * Selects name of the configured OidcClient and activates token exchange for the annotated REST or GraphQL client.
      * Please note that the default OidcClient's name is `Default`. You do not have to enable this attribute
      * if you use the default OidcClient and already have either 'quarkus.resteasy-client-oidc-token-propagation.exchange-token'
-     * or 'quarkus.rest-client-oidc-token-propagation.exchange-token' property set to 'true'
+     * or 'quarkus.rest-client-oidc-token-propagation.exchange-token' property set to 'true'.
+     * These properties only apply to REST clients, a GraphQL client only exchanges the token when this attribute is set.
      */
     String exchangeTokenClient() default "";
 

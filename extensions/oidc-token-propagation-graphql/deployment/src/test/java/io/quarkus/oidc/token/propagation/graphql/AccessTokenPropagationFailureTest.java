@@ -75,8 +75,8 @@ class AccessTokenPropagationFailureTest {
                 .when().get("/public-frontend/wrong-grant-type")
                 .then()
                 .statusCode(500)
-                .body(containsString("Token exchange is required but OIDC client is configured to use the "
-                        + "client_credentials grantType"));
+                .body(containsString("GraphQL client 'wrong-grant-type' requires the default OIDC client to exchange "
+                        + "the access token, but this OIDC client is configured to use the client_credentials grant type"));
     }
 
     @Path("/public-frontend")

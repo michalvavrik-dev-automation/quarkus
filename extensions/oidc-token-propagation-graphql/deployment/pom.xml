@@ -82,6 +82,35 @@
             <artifactId>quarkus-test-oidc-server</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Build-order-only dependencies: some tests force these deployment artifacts onto their classpath,
+             so they must be built before this module. Transitive dependencies are excluded so that the artifacts
+             are not added to the test classpath of the other tests. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-oidc-client-graphql-deployment</artifactId>
+            <version>${project.version}</version>
+            <type>pom</type>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest-client-oidc-token-propagation-deployment</artifactId>
+            <version>${project.version}</version>
+            <type>pom</type>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
     </dependencies>
 
     <build>

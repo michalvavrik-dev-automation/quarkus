@@ -79,8 +79,9 @@ public final class GraphQLAccessTokenProvider extends AbstractUni<String> {
             Map<String, String> tokenExchangeOidcClients) {
         GraphQLClientsConfiguration clientsConfiguration = GraphQLClientsConfiguration.getInstance();
         for (String graphQLClientKey : graphQLClientKeys) {
+            GraphQLClientConfiguration clientConfiguration = clientsConfiguration.getClient(graphQLClientKey);
             // the GraphQL clients only add the headers to the requests sent over HTTP
-            if (Boolean.TRUE.equals(clientsConfiguration.getClient(graphQLClientKey).getExecuteSingleOperationsOverWebsocket())) {
+            if (Boolean.TRUE.equals(clientConfiguration.getExecuteSingleOperationsOverWebsocket())) {
                 throw new ConfigurationException(
                         """
                                 GraphQL client '%1$s' is annotated with the @AccessToken annotation, but it executes queries and mutations \

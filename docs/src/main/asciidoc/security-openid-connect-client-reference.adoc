@@ -2051,7 +2051,7 @@ A GraphQL client request fails if there is no access token to propagate.
 
 === Exchange token before propagation
 
-A GraphQL client can exchange the access token before propagating it, like a REST client can, see <<token-propagation-rest>>.
+A GraphQL client can exchange the access token before propagating it.
 To activate the token exchange, select the `OidcClient` which exchanges the tokens with the `exchangeTokenClient` attribute of the `@AccessToken` annotation:
 
 [source,java]
@@ -2078,16 +2078,20 @@ quarkus.oidc-client.exchange-client.grant.type=exchange
 quarkus.oidc-client.exchange-client.grant-options.exchange.audience=quarkus-app-exchange
 ----
 
+The token exchange can only be activated with the `exchangeTokenClient` attribute, the `exchange-token` and `client-name` configuration properties described in <<token-propagation-rest>> do not apply to GraphQL clients.
+
 Each GraphQL client caches the exchanged tokens, see <<additional-grant-parameters-token-cache>>.
 An incoming access token is exchanged once and the exchanged token is propagated until it expires, even if the incoming access token is revoked in the meantime.
 Set the `quarkus.oidc-client.token-cache-max-size` property of the `OidcClient` which exchanges the tokens to `0` to exchange the incoming access token on every request.
 
 === Limitations
 
-* Only typesafe GraphQL clients can propagate the access token, and the `@AccessToken` annotation must be placed on the `@GraphQLClientApi` interface.
-The build fails if a GraphQL client method is annotated with the `@AccessToken` annotation.
+* The `@AccessToken` annotation must be placed on the `@GraphQLClientApi` interface of a typesafe GraphQL client.
+The build fails if a method or a parent interface of the GraphQL client is annotated instead.
 * The access token is only propagated with the operations executed over HTTP.
-It is not propagated with the operations executed over WebSocket, such as subscriptions.
+Therefore, the build fails if the annotated GraphQL client declares a subscription, and the application fails to start if the `quarkus.smallrye-graphql-client."client-name".execute-single-result-operations-over-websocket` configuration property is enabled for the annotated GraphQL client.
+* GraphQL clients with the same configuration key share the `Authorization` header.
+The build fails unless all `@GraphQLClientApi` interfaces with the same `configKey` have the same `@AccessToken` annotation, and a dynamic GraphQL client with this configuration key also propagates the access token.
 ifndef::no-quarkus-oidc-client-graphql[]
 * If the <<quarkus-oidc-client-graphql,`quarkus-oidc-client-graphql`>> extension is present, the GraphQL clients annotated with the `@AccessToken` annotation propagate the access token and all other GraphQL clients use the `OidcClient` to acquire a new access token.
 The build fails if you also select the `OidcClient` for a GraphQL client annotated with the `@AccessToken` annotation, either with the `@OidcClientFilter` annotation or with the `quarkus.oidc-client-graphql."graphql-client".client-name` configuration property.

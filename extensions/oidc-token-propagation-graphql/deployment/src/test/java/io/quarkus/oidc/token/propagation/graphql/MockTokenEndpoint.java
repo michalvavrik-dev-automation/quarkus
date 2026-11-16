@@ -43,6 +43,10 @@ public class MockTokenEndpoint {
                 .put("access_token", OidcWiremockTestResource.getAccessToken(userName, Set.of("user"))).encode());
     }
 
+    void respondWithoutAccessToken(String subjectToken) {
+        responses.put(subjectToken, new JsonObject().put("token_type", "Bearer").encode());
+    }
+
     int exchangeCount(String subjectToken) {
         AtomicInteger count = exchanges.get(subjectToken);
         return count == null ? 0 : count.get();

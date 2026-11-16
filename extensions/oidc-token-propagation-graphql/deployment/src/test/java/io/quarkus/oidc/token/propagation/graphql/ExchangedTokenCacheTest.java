@@ -1,6 +1,7 @@
 package io.quarkus.oidc.token.propagation.graphql;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 
 import java.util.Set;
@@ -100,6 +101,20 @@ class ExchangedTokenCacheTest {
         assertExchangedUserName(NO_CACHE_OIDC_CLIENT, token, "bob");
 
         assertThat(mockTokenEndpoint.exchangeCount(token)).isEqualTo(2);
+    }
+
+    @Test
+    void testExchangedTokenIsNotPropagatedWhenItIsMissing() {
+        String token = tokenIssuedToAlice("no-exchanged-token");
+        mockTokenEndpoint.respondWithoutAccessToken(token);
+
+        RestAssured.given().auth().oauth2(token)
+                .queryParam("oidc-client", DEFAULT_OIDC_CLIENT)
+                .when().get("/frontend/exchanged-user-name")
+                .then()
+                .statusCode(500)
+                .body(containsString("GraphQL client 'default-oidc-client' cannot propagate the exchanged access token: "
+                        + "the default OIDC client did not return it"));
     }
 
     private static String tokenIssuedToAlice(String subject) {

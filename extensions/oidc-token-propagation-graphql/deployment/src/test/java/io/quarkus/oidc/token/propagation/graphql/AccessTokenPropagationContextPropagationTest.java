@@ -1,5 +1,6 @@
 package io.quarkus.oidc.token.propagation.graphql;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 
 import java.util.concurrent.CompletableFuture;
@@ -34,7 +35,7 @@ public class AccessTokenPropagationContextPropagationTest {
     static final QuarkusExtensionTest test = new QuarkusExtensionTest()
             .withApplicationRoot((jar) -> jar
                     .addClasses(ProtectedGraphQLApi.class, PropagationTypesafeGraphQLClient.class,
-                            ManagedExecutorFrontendResource.class))
+                            OtherThreadFrontendResource.class))
             .withConfiguration(
                     """
                             quarkus.oidc.auth-server-url=${keycloak.url:replaced-by-test}/realms/quarkus
@@ -52,7 +53,7 @@ public class AccessTokenPropagationContextPropagationTest {
     @Test
     public void testAccessTokenIsPropagatedFromManagedExecutorThread() {
         RestAssured.given().auth().oauth2(client.getAccessToken("alice", "alice"))
-                .when().get("/managed-executor-frontend/me")
+                .when().get("/other-thread-frontend/managed-executor")
                 .then()
                 .statusCode(200)
                 .body(equalTo("alice"));
@@ -61,15 +62,25 @@ public class AccessTokenPropagationContextPropagationTest {
     @Test
     public void testAccessTokenIsPropagatedFromThreadWithPropagatedContext() {
         RestAssured.given().auth().oauth2(client.getAccessToken("alice", "alice"))
-                .when().get("/managed-executor-frontend/me-thread-context")
+                .when().get("/other-thread-frontend/propagated-context")
                 .then()
                 .statusCode(200)
                 .body(equalTo("alice"));
     }
 
-    @Path("/managed-executor-frontend")
+    @Test
+    public void testAccessTokenIsNotPropagatedFromThreadWithoutRequestContext() {
+        RestAssured.given().auth().oauth2(client.getAccessToken("alice", "alice"))
+                .when().get("/other-thread-frontend/no-context")
+                .then()
+                .statusCode(500)
+                .body(containsString("No access token is available to propagate to the GraphQL client 'propagation-client': "
+                        + "the CDI request context is not active"));
+    }
+
+    @Path("/other-thread-frontend")
     @Authenticated
-    public static class ManagedExecutorFrontendResource {
+    public static class OtherThreadFrontendResource {
 
         @Inject
         PropagationTypesafeGraphQLClient graphQLClient;
@@ -80,33 +91,39 @@ public class AccessTokenPropagationContextPropagationTest {
         @Inject
         ThreadContext threadContext;
 
-        @GET
-        @Path("/me-thread-context")
-        public String meThreadContext() throws Exception {
-            ExecutorService executor = Executors.newSingleThreadExecutor();
-            try {
-                // the CDI request context is propagated to a thread which is not managed by Quarkus
-                return CompletableFuture.supplyAsync(threadContext.contextualSupplier(new Supplier<String>() {
-                    @Override
-                    public String get() {
-                        return graphQLClient.me();
-                    }
-                }), executor).get(30, TimeUnit.SECONDS);
-            } finally {
-                executor.shutdownNow();
+        private final Supplier<String> me = new Supplier<String>() {
+            @Override
+            public String get() {
+                return graphQLClient.me();
             }
+        };
+
+        @GET
+        @Path("/managed-executor")
+        public String managedExecutor() throws Exception {
+            return managedExecutor.supplyAsync(me).get(30, TimeUnit.SECONDS);
         }
 
         @GET
-        @Path("/me")
-        public String me() throws Exception {
-            // the CDI request context is propagated to the managed executor thread
-            return managedExecutor.supplyAsync(new Supplier<String>() {
-                @Override
-                public String get() {
-                    return graphQLClient.me();
-                }
-            }).get(30, TimeUnit.SECONDS);
+        @Path("/propagated-context")
+        public String propagatedContext() throws Exception {
+            // the CDI request context is propagated to a thread which is not managed by Quarkus
+            return supplyAsync(threadContext.contextualSupplier(me));
+        }
+
+        @GET
+        @Path("/no-context")
+        public String noContext() throws Exception {
+            return supplyAsync(me);
+        }
+
+        private static String supplyAsync(Supplier<String> supplier) throws Exception {
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            try {
+                return CompletableFuture.supplyAsync(supplier, executor).get(30, TimeUnit.SECONDS);
+            } finally {
+                executor.shutdownNow();
+            }
         }
     }
 }
