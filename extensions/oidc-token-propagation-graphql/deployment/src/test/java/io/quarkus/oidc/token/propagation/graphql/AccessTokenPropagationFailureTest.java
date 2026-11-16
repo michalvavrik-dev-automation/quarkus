@@ -55,7 +55,8 @@ class AccessTokenPropagationFailureTest {
         RestAssured.when().get("/public-frontend/me")
                 .then()
                 .statusCode(500)
-                .body(containsString("No access token is available to propagate to the GraphQL client"));
+                .body(containsString("No access token is available to propagate to the GraphQL client 'propagation-client': "
+                        + "the current TokenCredential has no token"));
     }
 
     @Test
@@ -64,7 +65,8 @@ class AccessTokenPropagationFailureTest {
                 .when().get("/public-frontend/unknown-oidc-client")
                 .then()
                 .statusCode(500)
-                .body(containsString("unknown"));
+                .body(containsString("GraphQL client 'unknown-oidc-client' requires the 'unknown' OIDC client to exchange "
+                        + "the access token, but there is no such OIDC client"));
     }
 
     @Test
@@ -73,7 +75,8 @@ class AccessTokenPropagationFailureTest {
                 .when().get("/public-frontend/wrong-grant-type")
                 .then()
                 .statusCode(500)
-                .body(containsString("Token exchange is required"));
+                .body(containsString("Token exchange is required but OIDC client is configured to use the "
+                        + "client_credentials grantType"));
     }
 
     @Path("/public-frontend")

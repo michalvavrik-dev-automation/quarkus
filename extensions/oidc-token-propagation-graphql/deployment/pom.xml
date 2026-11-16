@@ -10,7 +10,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>quarkus-oidc-token-propagation-graphql-deployment</artifactId>
-    <name>Quarkus - OIDC - Token Propagation - GraphQL - Deployment</name>
+    <name>Quarkus - OIDC - Token Propagation - GraphQL client - Deployment</name>
 
     <dependencies>
         <dependency>
@@ -85,12 +85,6 @@
     </dependencies>
 
     <build>
-        <testResources>
-            <testResource>
-                <directory>src/test/resources</directory>
-                <filtering>true</filtering>
-            </testResource>
-        </testResources>
         <plugins>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -131,10 +125,6 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <skip>false</skip>
-                            <reuseForks>false</reuseForks>
-                            <systemPropertyVariables>
-                                <keycloak.use.https>false</keycloak.use.https>
-                            </systemPropertyVariables>
                         </configuration>
                     </plugin>
                 </plugins>

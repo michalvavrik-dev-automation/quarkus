@@ -1,6 +1,7 @@
 package io.quarkus.it.oidc.dev.services;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -44,5 +45,28 @@ public class OidcGraphQLClientTest {
                 .then()
                 .statusCode(200)
                 .body(equalTo("bob"));
+    }
+
+    @Test
+    void tokenExchangeAndPropagation() {
+        int tokenExchanges = getTokenExchanges();
+        String accessToken = oidcTestClient.getAccessToken("bob", "bob");
+        for (int i = 0; i < 2; i++) {
+            RestAssured.given()
+                    .auth().oauth2(accessToken)
+                    .when().get("/oidc-graphql-test/token-exchange")
+                    .then()
+                    .statusCode(200)
+                    .body(equalTo("bob"));
+        }
+        // the access token is exchanged once, then the exchanged token is cached
+        assertEquals(tokenExchanges + 1, getTokenExchanges());
+    }
+
+    private static int getTokenExchanges() {
+        return Integer.parseInt(RestAssured.when().get("/oidc-graphql-test/token-exchanges")
+                .then()
+                .statusCode(200)
+                .extract().asString());
     }
 }
