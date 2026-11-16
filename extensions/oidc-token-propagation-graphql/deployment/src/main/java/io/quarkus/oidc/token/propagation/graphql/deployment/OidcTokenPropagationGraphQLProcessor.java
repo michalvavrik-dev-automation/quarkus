@@ -1,9 +1,6 @@
 package io.quarkus.oidc.token.propagation.graphql.deployment;
 
-import static io.quarkus.deployment.annotations.ExecutionTime.RUNTIME_INIT;
-
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -11,22 +8,20 @@ import java.util.function.BooleanSupplier;
 
 import jakarta.enterprise.inject.spi.DeploymentException;
 
-import org.jboss.jandex.AnnotationInstance;
 import org.jboss.jandex.AnnotationTarget;
 import org.jboss.jandex.AnnotationValue;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
-import org.jboss.jandex.IndexView;
 
-import io.quarkus.arc.deployment.BeanArchiveIndexBuildItem;
+import io.quarkus.core.deployment.service.ServiceRegistrar;
 import io.quarkus.deployment.Feature;
+import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
-import io.quarkus.deployment.annotations.Consume;
-import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.oidc.client.filter.OidcClientFilter;
 import io.quarkus.oidc.token.propagation.common.deployment.AccessTokenInstanceBuildItem;
-import io.quarkus.oidc.token.propagation.graphql.runtime.OidcTokenPropagationGraphQLRecorder;
+import io.quarkus.oidc.token.propagation.graphql.runtime.GraphQLAccessTokenProvider;
+import io.quarkus.smallrye.graphql.client.deployment.GraphQLClientAuthorizationHeaderBuildItem;
 import io.quarkus.smallrye.graphql.client.deployment.GraphQLClientConfigInitializedBuildItem;
 
 class OidcTokenPropagationGraphQLProcessor {
@@ -34,7 +29,7 @@ class OidcTokenPropagationGraphQLProcessor {
     private static final DotName GRAPHQL_CLIENT_API = DotName
             .createSimple("io.smallrye.graphql.client.typesafe.api.GraphQLClientApi");
 
-    private static final DotName OIDC_CLIENT_FILTER = DotName.createSimple(OidcClientFilter.class.getName());
+    private static final DotName OIDC_CLIENT_FILTER = DotName.createSimple(OidcClientFilter.class);
 
     @BuildStep
     FeatureBuildItem feature() {
@@ -42,27 +37,26 @@ class OidcTokenPropagationGraphQLProcessor {
     }
 
     @BuildStep(onlyIf = IsEnabled.class)
-    @Record(RUNTIME_INIT)
-    @Consume(GraphQLClientConfigInitializedBuildItem.class)
     void propagateAccessTokens(List<AccessTokenInstanceBuildItem> accessTokenInstances,
-            BeanArchiveIndexBuildItem indexBuildItem,
-            OidcTokenPropagationGraphQLRecorder recorder) {
-        IndexView index = indexBuildItem.getIndex();
-
-        Set<String> propagateConfigKeys = new HashSet<>();
+            ServiceRegistrar serviceRegistrar,
+            BuildProducer<GraphQLClientAuthorizationHeaderBuildItem> authorizationHeaderProducer) {
+        Map<String, AccessTokenInstanceBuildItem> configKeyToAccessToken = new HashMap<>();
         Map<String, String> configKeyToExchangeOidcClient = new HashMap<>();
 
         for (AccessTokenInstanceBuildItem instance : accessTokenInstances) {
-            ClassInfo graphQLClientApi = index.getClassByName(DotName.createSimple(instance.targetClass()));
-            if (graphQLClientApi == null || !graphQLClientApi.hasDeclaredAnnotation(GRAPHQL_CLIENT_API)) {
+            AnnotationTarget annotationTarget = instance.getAnnotationTarget();
+            boolean methodLevel = annotationTarget.kind() == AnnotationTarget.Kind.METHOD;
+            ClassInfo graphQLClientApi = methodLevel ? annotationTarget.asMethod().declaringClass()
+                    : annotationTarget.asClass();
+            if (!graphQLClientApi.hasDeclaredAnnotation(GRAPHQL_CLIENT_API)) {
                 // not a GraphQL typesafe client; handled by the REST token-propagation modules
                 continue;
             }
-            if (instance.getAnnotationTarget().kind() == AnnotationTarget.Kind.METHOD) {
+            if (methodLevel) {
                 throw new DeploymentException(
                         String.format("@AccessToken on method '%s' of GraphQL client '%s' is not supported; "
                                 + "annotate the client interface instead.",
-                                instance.getAnnotationTarget().asMethod().name(), instance.targetClass()));
+                                annotationTarget.asMethod().name(), instance.targetClass()));
             }
             if (graphQLClientApi.hasDeclaredAnnotation(OIDC_CLIENT_FILTER)) {
                 throw new DeploymentException(
@@ -72,20 +66,41 @@ class OidcTokenPropagationGraphQLProcessor {
                                 instance.targetClass()));
             }
             String configKey = resolveConfigKey(graphQLClientApi);
-            propagateConfigKeys.add(configKey);
+            AccessTokenInstanceBuildItem previousInstance = configKeyToAccessToken.put(configKey, instance);
+            if (previousInstance != null && (previousInstance.exchangeTokenActivated() != instance.exchangeTokenActivated()
+                    || !previousInstance.getClientName().equals(instance.getClientName()))) {
+                // the GraphQL clients with the same configuration key share the Authorization header
+                throw new DeploymentException(
+                        String.format("GraphQL clients '%s' and '%s' share the configuration key '%s', therefore their "
+                                + "@AccessToken annotations must have the same 'exchangeTokenClient' attribute value.",
+                                previousInstance.targetClass(), instance.targetClass(), configKey));
+            }
             if (instance.exchangeTokenActivated()) {
                 configKeyToExchangeOidcClient.put(configKey, instance.getClientName());
             }
         }
 
-        if (!propagateConfigKeys.isEmpty()) {
-            recorder.enhanceGraphQLClients(propagateConfigKeys, configKeyToExchangeOidcClient);
+        if (configKeyToAccessToken.isEmpty()) {
+            return;
         }
+
+        for (String configKey : configKeyToAccessToken.keySet()) {
+            authorizationHeaderProducer
+                    .produce(new GraphQLClientAuthorizationHeaderBuildItem(configKey, "the @AccessToken annotation"));
+        }
+
+        Set<String> propagateConfigKeys = Set.copyOf(configKeyToAccessToken.keySet());
+        Map<String, String> exchangeOidcClients = Map.copyOf(configKeyToExchangeOidcClient);
+        serviceRegistrar.forService("io.quarkus.oidc-token-propagation-graphql.propagate-access-tokens")
+                .afterBuildItem(GraphQLClientConfigInitializedBuildItem.class)
+                // GraphQL clients must propagate access tokens before the application starts using them
+                .before("io.quarkus.arc.startup-event")
+                .onStart(ctx -> GraphQLAccessTokenProvider.propagateAccessTokens(ctx, propagateConfigKeys,
+                        exchangeOidcClients));
     }
 
     private static String resolveConfigKey(ClassInfo graphQLClientApi) {
-        AnnotationInstance annotation = graphQLClientApi.declaredAnnotation(GRAPHQL_CLIENT_API);
-        AnnotationValue configKeyValue = annotation != null ? annotation.value("configKey") : null;
+        AnnotationValue configKeyValue = graphQLClientApi.declaredAnnotation(GRAPHQL_CLIENT_API).value("configKey");
         String configKey = configKeyValue != null ? configKeyValue.asString() : null;
         return (configKey != null && !configKey.isEmpty()) ? configKey : graphQLClientApi.name().toString();
     }

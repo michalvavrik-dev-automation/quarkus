@@ -13,6 +13,9 @@ public class GraphQLClientResource {
     @Inject
     TypesafeGraphQLClientWithNamedOidcClient namedOidcClient;
 
+    @Inject
+    TypesafeGraphQLClientWithTokenPropagation tokenPropagationClient;
+
     @GET
     @Path("/default")
     public String callWithDefaultOidcClient() {
@@ -23,5 +26,11 @@ public class GraphQLClientResource {
     @Path("/named")
     public String callWithNamedOidcClient() {
         return namedOidcClient.principalName();
+    }
+
+    @GET
+    @Path("/token-propagation")
+    public String callWithPropagatedToken() {
+        return tokenPropagationClient.principalName();
     }
 }
